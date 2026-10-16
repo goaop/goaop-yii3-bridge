@@ -15,8 +15,10 @@ return [
         '__construct()' => ['prefix' => 'configured'],
     ],
 
-    // Aspects are ordinary services: their constructor arguments come from regular definitions
+    // Aspects are ordinary services: their constructor arguments come from regular definitions, and the
+    // "goaop.aspect" tag registers them without listing them in the params
     ReportAspect::class => [
         '__construct()' => ['label' => 'audited'],
+        'tags' => ['goaop.aspect'],
     ],
 ];

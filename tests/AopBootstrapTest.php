@@ -42,14 +42,15 @@ final class AopBootstrapTest extends TestCase
         $this->assertContains($appDir . '/src/Aspect', $options['excludePaths']);
     }
 
-    public function testAspectsContributedByPackagesAreMerged(): void
+    public function testAspectsOfParamsAndTagsAreMerged(): void
     {
         TestApplication::prepareRuntime();
 
         $aspects = TestApplication::initKernel()->getAspects();
 
         $this->assertSame(
-            [PackageAspect::class, GreetingAspect::class, ReportAspect::class, ConfiguredServiceAspect::class],
+            // The params of the package and of the application, then the tag map and the tagged definitions
+            [PackageAspect::class, GreetingAspect::class, ConfiguredServiceAspect::class, ReportAspect::class],
             $aspects->toArray(),
         );
     }

@@ -33,6 +33,12 @@ return [
             'yiisoft/yii-event' => ['?config/di-console.php'],
             '/' => ['$di'],
         ],
+        'di-tags' => [
+            '/' => ['di-tags.php'],
+        ],
+        'di-tags-console' => [
+            '/' => ['$di-tags'],
+        ],
         'events' => [],
         'events-console' => [
             'yiisoft/yii-console' => ['config/events-console.php'],

@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use Go\Yii3\GoAopBridge\Tests\App\Aspect\ConfiguredServiceAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
-use Go\Yii3\GoAopBridge\Tests\App\Aspect\ReportAspect;
 
 return [
     'yiisoft/aliases' => [
@@ -18,10 +16,9 @@ return [
     'goaop/goaop-yii3-bridge' => [
         'debug' => true,
         'excludePaths' => ['@src/Aspect'],
+        // ReportAspect and ConfiguredServiceAspect are registered by the "goaop.aspect" tag (di.php, di-tags.php)
         'aspects' => [
             GreetingAspect::class,
-            ReportAspect::class,
-            ConfiguredServiceAspect::class,
         ],
     ],
 ];
