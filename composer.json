@@ -1,0 +1,69 @@
+{
+    "name": "goaop/goaop-yii3-bridge",
+    "description": "Integration bridge for Go! AOP framework and Yii3",
+    "type": "library",
+    "keywords": [
+        "bridge",
+        "yii3",
+        "yii",
+        "aop",
+        "php",
+        "aspect"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Lisachenko Alexander",
+            "email": "lisachenko.it@gmail.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/goaop/goaop-yii3-bridge/issues",
+        "source": "https://github.com/goaop/goaop-yii3-bridge"
+    },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/lisachenko"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "goaop/framework": "^4.0@dev",
+        "psr/container": "^2.0",
+        "yiisoft/aliases": "^3.0",
+        "yiisoft/config": "^1.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.5 || ^13.0",
+        "symfony/console": "^7.4 || ^8.0",
+        "yiisoft/di": "^1.4",
+        "yiisoft/yii-console": "^2.4",
+        "yiisoft/yii-runner-console": "^2.2"
+    },
+    "suggest": {
+        "yiisoft/yii-console": "Adds the aop:warmup and aop:debug:* console commands"
+    },
+    "autoload": {
+        "psr-4": {
+            "Go\\Yii3\\GoAopBridge\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Go\\Yii3\\GoAopBridge\\Tests\\": "tests/",
+            "Go\\Yii3\\GoAopBridge\\Tests\\App\\": "tests/Support/App/src/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "yiisoft/config": false
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
