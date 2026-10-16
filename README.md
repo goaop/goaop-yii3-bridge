@@ -270,6 +270,21 @@ Weaving happens on the first load of each class. In production, turn `debug` off
 On read-only file systems add `Features::PREBUILT_CACHE` to `features`. The engine then trusts the cache completely
 and never writes to it, so rebuild it on every deploy.
 
+## Performance
+
+Measured with the [benchmarks](benchmarks/README.md) (`composer benchmark`), on a small synthetic application whose
+baseline boots in about 1.5 ms with opcache:
+
+- In production, with opcache and a warm AOP cache, the bridge adds **about 0.5 ms per request without aspects**:
+  the entry line reads the params, the tagged aspects and starts the kernel. No aspect class is loaded at boot, and
+  the weaver and the parsers are never loaded once the cache is warm.
+- Registering aspects costs a few µs per request at most; an aspect is resolved from the container (about 15 µs)
+  only when one of its advices runs for the first time.
+- Debug mode recompiles woven classes on every request (about 70 µs each), and the first request after a deployment
+  weaves every class it loads: keep `debug` off in production and run `./yii aop:warmup` at deployment.
+
+The full results, per mode and phase, are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+
 ## Caveats
 
 - Only classes under `appDir` and `includePaths` are woven. Vendor code is not.
