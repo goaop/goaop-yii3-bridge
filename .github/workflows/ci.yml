@@ -90,3 +90,32 @@ jobs:
           fail_ci_if_error: false
           slug: goaop/goaop-yii3-bridge
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  static-analysis:
+    name: PHPStan & composer validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-php-8.4-highest-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-php-8.4-highest-
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
