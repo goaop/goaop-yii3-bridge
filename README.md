@@ -27,8 +27,8 @@ expression, and the engine weaves it in. Your services stay plain business logic
   implement an interface or get wrapped in a proxy, and the container builds and injects them as usual.
 - 🏷️ **PHP 8 attributes.** Advices are declared with `#[Before]`, `#[After]`, `#[Around]` and `#[AfterThrowing]` on
   the methods of your aspect, using pointcut expressions (`execution(public App\Service\**->*(*))`).
-- 💤 **Lazy aspects with Yii DI.** Every aspect is a regular service of the Yii container: constructor injection,
-  autowiring and definitions work as for any other service. The engine resolves an aspect only when one of its advices
+- 💤 **Lazy aspects with Yii DI.** Every aspect is a regular service of the Yii container, registered by tagging it
+  `goaop.aspect`: constructor injection, autowiring and definitions work as for any other service. The engine resolves an aspect only when one of its advices
   runs for the first time. Until then the aspect class is not even loaded in production.
 - 🧩 **Yii3-native configuration.** The bridge plugs into [yiisoft/config](https://github.com/yiisoft/config) groups.
   Settings live under `params['goaop/goaop-yii3-bridge']`, accept aliases such as `@root`, `@runtime` and `@src`,
@@ -138,7 +138,39 @@ final readonly class LoggingAspect implements Aspect
 }
 ```
 
-Register it in `config/common/params.php`:
+### Registering aspects
+
+Tag the aspect with `goaop.aspect` in a container definition of the common `di` config group, e.g. in
+`config/common/di/aspects.php`. The same definition configures the constructor arguments that can't be autowired:
+
+```php
+use App\Aspect\AuditAspect;
+use App\Aspect\LoggingAspect;
+use Yiisoft\Definitions\Reference;
+
+return [
+    LoggingAspect::class => [
+        'tags' => ['goaop.aspect'],
+    ],
+    AuditAspect::class => [
+        '__construct()' => [
+            'logger' => Reference::to('auditLogger'),
+            'level'  => $params['app']['auditLevel'],
+        ],
+        'tags' => ['goaop.aspect'],
+    ],
+];
+```
+
+A definition with a dedicated `definition` key (`['definition' => static fn() => ..., 'tags' => ['goaop.aspect']]`)
+and a tag map in a common `di-tags` config group (`['goaop.aspect' => [LoggingAspect::class]]`) work too.
+
+The Yii container can only return tagged services by creating all of them. So the bridge reads the tag declarations
+from the configuration instead and creates no aspect until one of its advices runs. Keep these tags in the common
+groups: web and console processes share the woven cache, so they must weave the same aspects. Tags of
+`di-web`/`di-console` definitions and of service providers are not read.
+
+Alternatively, list the aspect classes in the `aspects` parameter of `config/common/params.php`:
 
 ```php
 'goaop/goaop-yii3-bridge' => [
@@ -148,32 +180,18 @@ Register it in `config/common/params.php`:
 ],
 ```
 
-Constructor arguments that can't be autowired come from a regular container definition, e.g. in
-`config/common/di/aspects.php`:
-
-```php
-use App\Aspect\AuditAspect;
-use Yiisoft\Definitions\Reference;
-
-return [
-    AuditAspect::class => [
-        '__construct()' => [
-            'logger' => Reference::to('auditLogger'),
-            'level'  => $params['app']['auditLevel'],
-        ],
-    ],
-];
-```
+Both ways can be combined, and an aspect found by both is registered once. Tagged services must be registered under
+their class name, the way the container validates tags.
 
 See the Go! AOP documentation on [advices](https://github.com/goaop/framework/blob/master/docs/advices.md) and
 [pointcuts](https://github.com/goaop/framework/blob/master/docs/pointcuts.md) for the full syntax.
 
 ### How aspects are resolved
 
-The bridge registers every listed class as a *deferred* service of the aspect container. The factory of that service
+The bridge registers every tagged or listed class as a *deferred* service of the aspect container. The factory of that service
 asks the Yii container for the aspect:
 
-1. The listed class names are only validated syntactically, so nothing is autoloaded when the kernel starts.
+1. The class names are only validated syntactically, so nothing is autoloaded when the kernel starts.
 2. When the weaver needs the advices of an aspect (on the first load of a matching class, or by `aop:warmup`), it
    reads them from the class through reflection. The aspect object is a native lazy proxy and is not constructed yet.
 3. On the first call of one of its advices, the proxy is initialized with `$container->get(AspectClass::class)`. That
@@ -186,13 +204,13 @@ PHP can't make a class without instance properties lazy. The weaver creates such
 and if the Yii container is not attached yet it does so directly, with `new`. A stateless aspect has nothing to
 inject, so this only fails, with a descriptive error, when its constructor requires arguments.
 
-In debug mode the bridge checks that every listed class exists and implements `Go\Aop\Aspect`. Otherwise the aspect
-container would silently ignore it.
+In debug mode the bridge checks that every tagged or listed class exists and implements `Go\Aop\Aspect`, and the error
+names the tag or parameter it comes from. Otherwise the aspect container would silently ignore it.
 
 ### Aspects contributed by packages
 
-The `params` group is merged recursively and lists are appended, so any package can contribute aspects from its own
-`config/params.php`:
+A package tags its aspects in its own `di` config the same way, or contributes them from its own `config/params.php`
+(the `params` group is merged recursively and lists are appended):
 
 ```php
 return [
@@ -221,6 +239,7 @@ environment in `config/environments/<env>/params.php`:
 | `includePaths`  | `['@src']`         | Only these directories are woven. Keep it narrow. |
 | `excludePaths`  | `[]`               | Never woven. The cache directory and the framework are always excluded. |
 | `aspects`       | `[]`               | Aspect classes, resolved lazily from the Yii container. |
+| `aspectTag`     | `'goaop.aspect'`   | Container tag registering aspects, read from the common `di` and `di-tags` config groups. `null` disables it. |
 
 A malformed parameter fails fast with a message naming it.
 

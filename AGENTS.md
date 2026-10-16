@@ -25,7 +25,9 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   yiisoft/config `Config`, reads the `params` group, boots the kernel before the runner builds the container.
 - `src/Kernel/AspectYii3Kernel.php` — `configureAop()` registers every aspect with `addLazyService()`; the factory
   resolves it through `ContainerResolver` (the Yii container, attached later by the bootstrap callback).
-- `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters.
+- `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
+  origin (parameter or tag) of every aspect for error messages.
+- `src/Config/TaggedAspects.php` — aspects tagged `goaop.aspect` (the `aspectTag` param) in the container config.
 - `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
 
 ## Load-bearing constraints (do not "simplify" these away)
@@ -40,7 +42,11 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - Native lazy proxies: an advice runs with `$this` bound to the proxy, the state is the Yii instance's. Classes without
   instance properties cannot be lazy; their factory runs while weaving — before the container is attached, they are
   instantiated directly (`AspectYii3Kernel::instantiateStatelessAspect()`).
-- yiisoft/di exposes no tagged ids without instantiating the services, so aspects are a params list, not a tag.
+- yiisoft/di exposes no tagged ids without instantiating the services (`get('tag@…')` creates them all), so
+  `TaggedAspects` reads the tag declarations from the config: the `tags` meta key of the common `di` group and the
+  common `di-tags` tag map, in the container's order (tag map first). Only common groups: web and console share the
+  woven cache, so they must weave the same aspects. The entry line uses the `Config` it builds, the bootstrap
+  fallback the `ConfigInterface` the runner registers in the container.
 - `Go\Core\AspectKernel` is a process-global singleton with a `final protected` constructor. Tests touching the kernel
   run in separate PHPUnit processes, each with its own `@runtime` (`TestApplication::prepareRuntime()`).
 - `cacheFileMode` must reach the kernel as an `int`; strings of octal digits are converted by `KernelOptions`.
