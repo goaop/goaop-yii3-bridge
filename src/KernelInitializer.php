@@ -16,6 +16,7 @@ use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use Psr\Container\ContainerInterface;
+use UnexpectedValueException;
 
 /**
  * Connects the aspect kernel with the Yii container, run from the "bootstrap" config group of the bridge
@@ -25,17 +26,18 @@ use Psr\Container\ContainerInterface;
  * weaving late: classes autoloaded while the container was built (e.g. every class with an array definition in
  * debug mode, service providers, the HTTP error handler) are not woven.
  */
-final readonly class KernelInitializer
+final class KernelInitializer
 {
-    public function __construct(
-        private KernelOptions $options,
-        private AspectList $aspects,
-    ) {}
-
     public function initialize(ContainerInterface $container): AspectYii3Kernel
     {
         $kernel = AspectYii3Kernel::instance();
-        $kernel->boot($this->options, $this->aspects);
+        // Options and aspects are only resolved when the entry script did not initialize the kernel
+        if (!$kernel->isInitialized()) {
+            $kernel->boot(
+                self::service($container, KernelOptions::class),
+                self::service($container, AspectList::class),
+            );
+        }
         $kernel->attachContainer($container);
 
         // The aspect container ignores a registered service that is not an aspect; in debug mode such a
@@ -45,5 +47,26 @@ final readonly class KernelInitializer
         }
 
         return $kernel;
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param class-string<T> $id
+     *
+     * @return T
+     */
+    private static function service(ContainerInterface $container, string $id): object
+    {
+        $service = $container->get($id);
+        if (!$service instanceof $id) {
+            throw new UnexpectedValueException(sprintf(
+                'Container service "%s" must be an instance of it, %s given.',
+                $id,
+                get_debug_type($service),
+            ));
+        }
+
+        return $service;
     }
 }

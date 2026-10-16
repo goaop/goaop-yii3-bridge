@@ -23,6 +23,7 @@ use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Service\Journal;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 use InvalidArgumentException;
+use LogicException;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
@@ -88,6 +89,24 @@ final class PackageConfigTest extends TestCase
         $this->assertSame([GreetingAspect::class], $aspects->toArray());
     }
 
+    public function testBootstrapKeepsTheKernelInitializedByTheEntryScript(): void
+    {
+        $runtime = TestApplication::prepareRuntime();
+        $kernel  = AspectYii3Kernel::instance();
+        $kernel->boot(
+            new KernelOptions(false, dirname(__DIR__, 2), $runtime, null, 0, [], []),
+            AspectList::fromClassNames([GreetingAspect::class]),
+        );
+
+        self::bootstrap(self::container(definitions: [
+            KernelOptions::class => static fn(): never => throw new LogicException('The options must not be resolved'),
+            AspectList::class    => static fn(): never => throw new LogicException('The aspects must not be resolved'),
+        ]));
+
+        $this->assertTrue($kernel->isContainerAttached());
+        $this->assertSame($runtime, $kernel->getOptions()['cacheDir']);
+    }
+
     public function testDebugModeReportsConfiguredClassThatIsNotAnAspect(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -110,9 +129,10 @@ final class PackageConfigTest extends TestCase
     }
 
     /**
-     * @param list<string> $aspects
+     * @param list<string>         $aspects
+     * @param array<string, mixed> $definitions Definitions replacing the ones of the package
      */
-    private static function container(array $aspects = [GreetingAspect::class]): ContainerInterface
+    private static function container(array $aspects = [GreetingAspect::class], array $definitions = []): ContainerInterface
     {
         $runtime = TestApplication::prepareRuntime();
         $params  = array_replace_recursive(self::requireConfig('params.php', []), [
@@ -123,7 +143,7 @@ final class PackageConfigTest extends TestCase
             ],
         ]);
 
-        $definitions = self::requireConfig('di.php', $params) + [
+        $definitions += self::requireConfig('di.php', $params) + [
             Aliases::class => new Aliases([
                 '@root'    => dirname(__DIR__, 2),
                 '@src'     => '@root/src',
