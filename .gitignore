@@ -3,3 +3,4 @@ composer.lock
 /.phpunit.cache/
 /build/
 /tests/Support/App/runtime/
+/benchmarks/var/
