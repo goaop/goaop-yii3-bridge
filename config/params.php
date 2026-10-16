@@ -35,5 +35,12 @@ return [
          * its advices. Configure its constructor arguments with a regular container definition.
          */
         'aspects' => [],
+
+        /*
+         * Container tag of aspect services: every definition of the common "di" config group tagged with it
+         * ('tags' => ['goaop.aspect']), and every service listed under it in a common "di-tags" group, is
+         * registered as an aspect too, just as lazily. Null disables the lookup.
+         */
+        'aspectTag' => 'goaop.aspect',
     ],
 ];

@@ -20,9 +20,9 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * Aspect classes declared in the "aspects" parameter of the bridge
+ * Aspect classes declared in the "aspects" parameter of the bridge or tagged in the container config
  *
- * The list is built from the merged application parameters, so every package can contribute its own aspects. The
+ * The list is built from the merged application config, so every package can contribute its own aspects. The
  * class names are only checked syntactically: nothing is autoloaded here, aspects stay unloaded until the weaver or
  * one of their advices needs them. Duplicates (e.g. contributed by two packages) are registered once.
  *
@@ -33,9 +33,14 @@ final readonly class AspectList implements IteratorAggregate, Countable
     private const string CLASS_NAME_PATTERN = '/^[A-Za-z_\x80-\xff][\w\x80-\xff]*(\\\\[A-Za-z_\x80-\xff][\w\x80-\xff]*)*$/';
 
     /**
-     * @param list<class-string> $aspectClasses
+     * Where the aspects of the "aspects" parameter are declared, as used in error messages
      */
-    private function __construct(private array $aspectClasses) {}
+    private const string PARAMS_ORIGIN = 'the "' . KernelOptions::PARAMS_KEY . '" parameter "aspects"';
+
+    /**
+     * @param array<class-string, string> $origins Declaration place of every aspect class, in registration order
+     */
+    private function __construct(private array $origins) {}
 
     /**
      * @param array<mixed> $params Value of $params['goaop/goaop-yii3-bridge']
@@ -45,8 +50,8 @@ final readonly class AspectList implements IteratorAggregate, Countable
         $aspects = $params['aspects'] ?? [];
         if (!is_array($aspects)) {
             throw new InvalidArgumentException(sprintf(
-                'The "%s" parameter "aspects" must be a list of aspect class names, %s given.',
-                KernelOptions::PARAMS_KEY,
+                '%s must be a list of aspect class names, %s given.',
+                ucfirst(self::PARAMS_ORIGIN),
                 get_debug_type($aspects),
             ));
         }
@@ -56,24 +61,33 @@ final readonly class AspectList implements IteratorAggregate, Countable
 
     /**
      * @param array<mixed> $classNames
+     * @param string       $origin     Where the classes are declared, for error messages
      */
-    public static function fromClassNames(array $classNames): self
+    public static function fromClassNames(array $classNames, string $origin = self::PARAMS_ORIGIN): self
     {
-        $aspectClasses = [];
+        $origins = [];
         foreach ($classNames as $className) {
             if (!is_string($className) || preg_match(self::CLASS_NAME_PATTERN, ltrim($className, '\\')) !== 1) {
                 throw new InvalidArgumentException(sprintf(
-                    'The "%s" parameter "aspects" must contain aspect class names, %s given.',
-                    KernelOptions::PARAMS_KEY,
+                    '%s must contain aspect class names, %s given.',
+                    ucfirst($origin),
                     is_string($className) ? '"' . $className . '"' : get_debug_type($className),
                 ));
             }
             /** @var class-string $className Syntactically valid, deliberately not autoloaded */
             $className = ltrim($className, '\\');
-            $aspectClasses[$className] = $className;
+            $origins[$className] ??= $origin;
         }
 
-        return new self(array_values($aspectClasses));
+        return new self($origins);
+    }
+
+    /**
+     * Returns the aspects of this list followed by the ones of the other list that are not listed yet
+     */
+    public function merge(self $other): self
+    {
+        return new self($this->origins + $other->origins);
     }
 
     /**
@@ -86,19 +100,19 @@ final readonly class AspectList implements IteratorAggregate, Countable
      */
     public function assertAspects(): void
     {
-        foreach ($this->aspectClasses as $aspectClass) {
+        foreach ($this->origins as $aspectClass => $origin) {
             if (!class_exists($aspectClass)) {
                 throw new InvalidArgumentException(sprintf(
-                    'Aspect class "%s" listed in the "%s" parameter "aspects" does not exist.',
+                    'Aspect class "%s" listed in %s does not exist.',
                     $aspectClass,
-                    KernelOptions::PARAMS_KEY,
+                    $origin,
                 ));
             }
             if (!is_subclass_of($aspectClass, Aspect::class)) {
                 throw new InvalidArgumentException(sprintf(
-                    'Class "%s" listed in the "%s" parameter "aspects" must implement the "%s" interface.',
+                    'Class "%s" listed in %s must implement the "%s" interface.',
                     $aspectClass,
-                    KernelOptions::PARAMS_KEY,
+                    $origin,
                     Aspect::class,
                 ));
             }
@@ -110,16 +124,16 @@ final readonly class AspectList implements IteratorAggregate, Countable
      */
     public function toArray(): array
     {
-        return $this->aspectClasses;
+        return array_keys($this->origins);
     }
 
     public function getIterator(): Traversable
     {
-        return new ArrayIterator($this->aspectClasses);
+        return new ArrayIterator($this->toArray());
     }
 
     public function count(): int
     {
-        return count($this->aspectClasses);
+        return count($this->origins);
     }
 }

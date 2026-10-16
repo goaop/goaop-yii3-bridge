@@ -69,6 +69,24 @@ final class AspectListTest extends TestCase
         AspectList::fromClassNames([42]);
     }
 
+    public function testMergeAppendsTheAspectsNotListedYet(): void
+    {
+        $merged = AspectList::fromClassNames([GreetingAspect::class])
+            ->merge(AspectList::fromClassNames([ReportAspect::class, GreetingAspect::class], 'the tag'));
+
+        $this->assertSame([GreetingAspect::class, ReportAspect::class], $merged->toArray());
+    }
+
+    public function testAssertAspectsNamesWhereTheClassIsDeclared(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Class "' . Journal::class . '" listed in the "goaop.aspect" tag of the "di" config group must implement');
+
+        AspectList::fromClassNames([GreetingAspect::class])
+            ->merge(AspectList::fromClassNames([Journal::class], 'the "goaop.aspect" tag of the "di" config group'))
+            ->assertAspects();
+    }
+
     public function testAssertAspectsAcceptsAspects(): void
     {
         AspectList::fromClassNames([GreetingAspect::class, ReportAspect::class])->assertAspects();
