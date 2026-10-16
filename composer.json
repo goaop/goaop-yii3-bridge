@@ -32,7 +32,7 @@
         "goaop/framework": "^4.0@dev",
         "psr/container": "^2.0",
         "yiisoft/aliases": "^3.0",
-        "yiisoft/config": "^1.5"
+        "yiisoft/config": "^1.6"
     },
     "require-dev": {
         "phpstan/phpstan": "^2.1",
@@ -40,8 +40,11 @@
         "phpunit/phpunit": "^12.5 || ^13.0",
         "psr/log": "^3.0",
         "symfony/console": "^7.4 || ^8.0",
+        "symfony/event-dispatcher-contracts": "^3.5",
+        "yiisoft/arrays": "^3.2",
         "yiisoft/definitions": "^3.4",
         "yiisoft/di": "^1.4",
+        "yiisoft/strings": "^2.6",
         "yiisoft/yii-console": "^2.4",
         "yiisoft/yii-runner-console": "^2.2"
     },
