@@ -38,6 +38,7 @@
         "phpunit/phpunit": "^12.5 || ^13.0",
         "psr/log": "^3.0",
         "symfony/console": "^7.4 || ^8.0",
+        "yiisoft/definitions": "^3.4",
         "yiisoft/di": "^1.4",
         "yiisoft/yii-console": "^2.4",
         "yiisoft/yii-runner-console": "^2.2"
