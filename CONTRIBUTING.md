@@ -73,5 +73,8 @@ docs/readme-deployment
 - Fixture classes of the application must not be autoloaded before the kernel is initialized: reference them with
   `::class` only (which does not autoload) until the test started the application.
 - `tests/Functional` runs `tests/Support/App/yii` in its own PHP process, through the real console runner.
+- `tests/Performance` checks what a request of the benchmark application loads (deterministic); timings are measured
+  by `composer benchmark` (see `benchmarks/README.md`). Run `composer benchmark -- --assert` for changes touching the
+  boot path, and update `benchmarks/RESULTS.md` and `benchmarks/budgets.php` when the numbers move.
 - Run the suite on every supported PHP version you have, e.g. `php8.4 vendor/bin/phpunit` — with a `vendor/`
   installed by that PHP version.

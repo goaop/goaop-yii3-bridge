@@ -29,6 +29,8 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — aspects tagged `goaop.aspect` (the `aspectTag` param) in the container config.
 - `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
+- `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
+  timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
 
 ## Load-bearing constraints (do not "simplify" these away)
 
@@ -59,7 +61,8 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 composer install            # needs minimum-stability: dev deps (goaop/framework 4.x-dev)
 composer validate --strict
 composer test               # phpunit
-composer analyse            # phpstan, level max (src, config, tests)
+composer analyse            # phpstan, level max (src, config, tests, benchmarks)
+composer benchmark          # boot-time benchmarks, see benchmarks/README.md (-- --quick --assert for a smoke run)
 ```
 
 ## Conventions
@@ -72,6 +75,10 @@ composer analyse            # phpstan, level max (src, config, tests)
 - New classes are `final` unless meant to be extended. See `CONTRIBUTING.md` for the full workflow.
 
 ## Things agents get wrong here
+
+- Performance claims need numbers from `composer benchmark`: keep `benchmarks/RESULTS.md` and `benchmarks/budgets.php`
+  in sync with them. The benchmark sets its own ini settings (CLI without opcache, server with opcache, JIT off by
+  default); do not compare CLI and server numbers.
 
 - The fixture merge plan (`tests/Support/App/config/.merge-plan.php`) is hand-written in the format of the yiisoft/config
   plugin; the bridge itself is listed under the vendor override package `//`. Mark vendor files that differ between

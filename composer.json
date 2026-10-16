@@ -58,13 +58,15 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "Go\\Yii3\\GoAopBridge\\Benchmarks\\": "benchmarks/src/",
             "Go\\Yii3\\GoAopBridge\\Tests\\": "tests/",
             "Go\\Yii3\\GoAopBridge\\Tests\\App\\": "tests/Support/App/src/"
         }
     },
     "scripts": {
         "test": "phpunit",
-        "analyse": "phpstan analyse"
+        "analyse": "phpstan analyse",
+        "benchmark": "@php benchmarks/run.php"
     },
     "config": {
         "sort-packages": true,
