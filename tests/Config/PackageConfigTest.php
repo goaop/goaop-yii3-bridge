@@ -19,7 +19,9 @@ use Go\Yii3\GoAopBridge\Command\WarmupCommand;
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
+use Go\Yii3\GoAopBridge\Tests\App\Aspect\ConfiguredServiceAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
+use Go\Yii3\GoAopBridge\Tests\App\Aspect\ReportAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Service\Journal;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 use InvalidArgumentException;
@@ -29,6 +31,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Yiisoft\Aliases\Aliases;
+use Yiisoft\Config\ConfigInterface;
 use Yiisoft\Di\Container;
 use Yiisoft\Di\ContainerConfig;
 
@@ -87,6 +90,39 @@ final class PackageConfigTest extends TestCase
         $aspects = $container->get(AspectList::class);
         $this->assertInstanceOf(AspectList::class, $aspects);
         $this->assertSame([GreetingAspect::class], $aspects->toArray());
+    }
+
+    public function testBootstrapRegistersAspectsTaggedInTheRunnerConfig(): void
+    {
+        // The runners register their config as ConfigInterface
+        $config = new readonly class implements ConfigInterface {
+            /**
+             * @return array<mixed>
+             */
+            public function get(string $group): array
+            {
+                return match ($group) {
+                    'di'      => [ReportAspect::class => ['__construct()' => ['label' => 'audited'], 'tags' => ['goaop.aspect']]],
+                    'di-tags' => ['goaop.aspect' => [ConfiguredServiceAspect::class]],
+                    default   => throw new LogicException(sprintf('No "%s" config group', $group)),
+                };
+            }
+
+            public function has(string $group): bool
+            {
+                return in_array($group, ['di', 'di-tags'], true);
+            }
+        };
+
+        $container = self::bootstrap(self::container(definitions: [ConfigInterface::class => $config]));
+
+        $kernel = $container->get(AspectYii3Kernel::class);
+        $this->assertInstanceOf(AspectYii3Kernel::class, $kernel);
+        $this->assertSame(
+            [GreetingAspect::class, ConfiguredServiceAspect::class, ReportAspect::class],
+            $kernel->getAspects()->toArray(),
+        );
+        $this->assertTrue($kernel->getContainer()->has(ReportAspect::class));
     }
 
     public function testBootstrapKeepsTheKernelInitializedByTheEntryScript(): void

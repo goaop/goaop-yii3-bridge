@@ -14,6 +14,7 @@ namespace Go\Yii3\GoAopBridge;
 
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
+use Go\Yii3\GoAopBridge\Config\TaggedAspects;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use InvalidArgumentException;
 use Yiisoft\Aliases\Aliases;
@@ -31,7 +32,8 @@ use Yiisoft\Config\Modifier\RecursiveMerge;
  * ```
  *
  * The options and aspects are read from the merged "params" config group (the bridge section and the
- * "yiisoft/aliases" aliases), the same configuration the runner uses later. Weaving then covers every class the
+ * "yiisoft/aliases" aliases), the same configuration the runner uses later; tagged aspects from the common "di"
+ * and "di-tags" groups ({@see TaggedAspects}). Weaving then covers every class the
  * runner autoloads while it builds the container, which a callback of the "bootstrap" config group can not.
  */
 final class AopBootstrap
@@ -80,7 +82,7 @@ final class AopBootstrap
         }
         $kernel->boot(
             KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? [])),
-            AspectList::fromParams($bridgeParams),
+            AspectList::fromParams($bridgeParams)->merge(TaggedAspects::fromParams($bridgeParams)->collect($config)),
         );
 
         return $kernel;
