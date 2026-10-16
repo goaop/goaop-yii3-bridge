@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHPUnit (PHP ${{ matrix.php }}, ${{ matrix.dependencies }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+        dependencies: [lowest, highest]
+        experimental: [false]
+        include:
+          # Not released yet: failures are reported, but never fail the build
+          - php: '8.6'
+            dependencies: lowest
+            experimental: true
+          - php: '8.6'
+            dependencies: highest
+            experimental: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-php-${{ matrix.php }}-${{ matrix.dependencies }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-php-${{ matrix.php }}-${{ matrix.dependencies }}-
+
+      - name: Install dependencies
+        run: >-
+          composer update --no-interaction --no-progress
+          ${{ matrix.dependencies == 'lowest' && '--prefer-lowest' || '' }}
+          ${{ matrix.experimental && '--ignore-platform-req=php+' || '' }}
+
+      - name: Run tests
+        run: vendor/bin/phpunit
+
+  coverage:
+    name: Code coverage (PHP 8.4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: pcov
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-php-8.4-highest-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-php-8.4-highest-
+
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress
+
+      - name: Run tests with coverage
+        run: vendor/bin/phpunit --coverage-clover build/logs/clover.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: build/logs/clover.xml
+          fail_ci_if_error: false
+          slug: goaop/goaop-yii3-bridge
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  static-analysis:
+    name: PHPStan & composer validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          ini-values: memory_limit=-1
+          tools: composer:v2
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-php-8.4-highest-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ runner.os }}-php-8.4-highest-
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G

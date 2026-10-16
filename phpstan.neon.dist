@@ -1,0 +1,10 @@
+includes:
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+
+parameters:
+    level: max
+    paths:
+        - src
+        - config
+        - tests
+    treatPhpDocTypesAsCertain: false
