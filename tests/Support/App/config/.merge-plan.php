@@ -19,6 +19,7 @@ return [
         'params-console' => [
             'yiisoft/yii-console' => ['config/params-console.php'],
             'yiisoft/yii-event' => ['?config/params-console.php'],
+            '//' => ['../config/params-console.php'],
             '/' => ['$params'],
         ],
         'di' => [
