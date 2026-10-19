@@ -65,29 +65,35 @@ installed it with the plugin disabled).
 
 ### Start the kernel from the entry script
 
-Add one line to `src/bootstrap.php` (the file that `public/index.php`, `yii` and the test bootstrap require), right
-after Composer's autoloader:
+Add one line to every entry script (`public/index.php`, `yii`, and the bootstrap of your functional tests), between the
+creation of the runner and its run. `public/index.php` of the [application template](https://github.com/yiisoft/app)
+becomes:
 
 ```php
-<?php
-
-declare(strict_types=1);
-
 use App\Environment;
 use Go\Yii3\GoAopBridge\AopBootstrap;
+use Yiisoft\Yii\Runner\Http\HttpApplicationRunner;
 
-require_once dirname(__DIR__) . '/vendor/autoload.php';
+// ...
 
-// ... .env loading ...
+$runner = new HttpApplicationRunner(
+    rootPath: dirname(__DIR__),
+    debug: Environment::appDebug(),
+    checkEvents: Environment::appDebug(),
+    environment: Environment::appEnv(),
+);
 
-Environment::prepare();
+AopBootstrap::init($runner->getConfig(), rootPath: dirname(__DIR__));
 
-AopBootstrap::init(rootPath: dirname(__DIR__), environment: Environment::appEnv());
+$runner->run();
 ```
 
-`AopBootstrap::init()` reads the bridge parameters and the aliases from the merged `params` config group, the same
-configuration the runner uses. Pass it the same `rootPath`, `environment` (and `configDirectory`, `vendorDirectory`,
-`mergePlanFile`, if you changed them) as your runners.
+and `yii` does the same with its `ConsoleApplicationRunner` (`rootPath: __DIR__`).
+
+`AopBootstrap::init()` reads the bridge parameters, the aliases and the tagged aspects from the config of the runner:
+the parameters it sees are the ones of that runner (`params-web` or `params-console`, with `params` nested), the
+container definitions are evaluated with them, as the runner does later. The runner keeps that config, so the
+parameters are not built twice.
 
 Why the entry script? Weaving only applies to classes loaded after the kernel starts. The Yii runner autoloads
 classes while it builds the container, before any `bootstrap` callback runs. In debug mode, for example, every
@@ -288,7 +294,7 @@ The full results, per mode and phase, are in [benchmarks/RESULTS.md](benchmarks/
 ## Caveats
 
 - Only classes under `appDir` and `includePaths` are woven. Vendor code is not.
-- Classes loaded before `AopBootstrap::init()`, such as `App\Environment` and anything `src/bootstrap.php` touches
+- Classes loaded before `AopBootstrap::init()`, such as `App\Environment` and anything the entry script touches
   before that line, can't be woven.
 - Aspects need no weaving themselves: exclude their directory (e.g. `'excludePaths' => ['@src/Aspect']`). An aspect
   that depends on a class it advises creates a circular dependency, which `aop:debug:weaving` reports.

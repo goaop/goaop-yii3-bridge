@@ -21,8 +21,11 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `config/bootstrap.php` — `KernelInitializer::initialize()`: attaches the Yii container to the kernel, initializes the
   kernel itself when the entry line was not used (fallback), checks the aspects in debug mode.
 - `config/params-console.php` — registers the commands with yii-console (autowired, no `di-console` needed).
-- `src/AopBootstrap.php` — the entry line (`AopBootstrap::init()` in the app's `src/bootstrap.php`): builds a
-  yiisoft/config `Config`, reads the `params` group, boots the kernel before the runner builds the container.
+- `config/kernel.php` — the `goaop-kernel` group: returns the bridge and alias parameters. Its file is evaluated with
+  the params group of the config it is read from, so the entry line sees the parameters of the runner.
+- `src/AopBootstrap.php` — the entry line (`AopBootstrap::init($runner->getConfig(), $rootPath)` in every entry script,
+  between the creation of the runner and its run): reads the `goaop-kernel` group of the runner's config, boots the
+  kernel before the runner builds the container.
 - `src/Kernel/AspectYii3Kernel.php` — `configureAop()` registers every aspect with `addLazyService()`; the factory
   resolves it through `ContainerResolver` (the Yii container, attached later by the bootstrap callback).
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
@@ -37,6 +40,8 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - Kernel start must happen in the entry script, not in a `bootstrap` callback: in debug mode yiisoft/definitions
   (>= 3.4) reflects every array definition while the container is built, and the HTTP runner creates the error handler
   before the bootstrap group runs. The bootstrap fallback exists, but misses those classes.
+- The entry line reads the config of the runner, never a `Config` of its own: the runner evaluates every group with its
+  own params group (`params-web`, `params-console`), and a definition of the common `di` group may read any of them.
 - Aspects are registered inside `configureAop()`, before `AopComposerLoader` serves any class: registering them later
   would weave classes loaded in between without advices.
 - Never autoload aspect classes at registration (production keeps them unloaded); `AspectList` checks names
@@ -47,8 +52,8 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - yiisoft/di exposes no tagged ids without instantiating the services (`get('tag@…')` creates them all), so
   `TaggedAspects` reads the tag declarations from the config: the `tags` meta key of the common `di` group and the
   common `di-tags` tag map, in the container's order (tag map first). Only common groups: web and console share the
-  woven cache, so they must weave the same aspects. The entry line uses the `Config` it builds, the bootstrap
-  fallback the `ConfigInterface` the runner registers in the container.
+  woven cache, so they must weave the same aspects. The entry line uses the config of the runner, the bootstrap
+  fallback the `ConfigInterface` the runner registers in the container (the same object).
 - `Go\Core\AspectKernel` is a process-global singleton with a `final protected` constructor. Tests touching the kernel
   run in separate PHPUnit processes, each with its own `@runtime` (`TestApplication::prepareRuntime()`).
 - `cacheFileMode` must reach the kernel as an `int`; strings of octal digits are converted by `KernelOptions`.

@@ -67,7 +67,8 @@ docs/readme-deployment
 ## Testing notes
 
 - `tests/Support/App` is a small Yii3 application (config directory, hand-written `.merge-plan.php`, `yii` entry
-  script). `TestApplication` starts it the way its entry scripts do: `AopBootstrap::init()`, then the console runner.
+  script). `TestApplication` starts it the way its entry scripts do: the console runner is created,
+  `AopBootstrap::init()` reads its config, then the runner builds the container.
 - Anything that initializes the aspect kernel must run with `#[RunTestsInSeparateProcesses]`: the kernel is a
   process-global singleton, it wraps the composer autoloader and only honours the options of its first initialization.
 - Fixture classes of the application must not be autoloaded before the kernel is initialized: reference them with

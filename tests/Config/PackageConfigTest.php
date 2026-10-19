@@ -54,7 +54,7 @@ final class PackageConfigTest extends TestCase
         $this->assertSame(['source-directory' => 'config'], $composer['extra']['config-plugin-options']);
         $groups = $composer['extra']['config-plugin'];
         $this->assertIsArray($groups);
-        $this->assertSame(['params', 'di', 'bootstrap', 'params-console'], array_keys($groups));
+        $this->assertSame(['params', 'di', 'bootstrap', 'params-console', 'goaop-kernel'], array_keys($groups));
         foreach ($groups as $file) {
             $this->assertIsString($file);
             $this->assertFileExists(self::CONFIG_DIR . '/' . $file);
@@ -149,6 +149,21 @@ final class PackageConfigTest extends TestCase
         $this->expectExceptionMessage('Class "' . Journal::class . '" listed in the "goaop/goaop-yii3-bridge" parameter "aspects" must implement the "Go\Aop\Aspect" interface.');
 
         self::bootstrap(self::container([Journal::class]));
+    }
+
+    public function testKernelGroupReturnsTheParametersOfItsConfig(): void
+    {
+        $bridge  = ['debug' => false];
+        $aliases = ['aliases' => ['@root' => '/app']];
+
+        $this->assertSame(
+            ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases],
+            self::requireConfig('kernel.php', ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases, 'app' => []]),
+        );
+        $this->assertSame(
+            ['goaop/goaop-yii3-bridge' => null, 'yiisoft/aliases' => null],
+            self::requireConfig('kernel.php', []),
+        );
     }
 
     public function testConsoleParamsRegisterTheCommands(): void

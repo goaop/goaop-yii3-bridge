@@ -166,6 +166,7 @@ final readonly class AppGenerator
 
         return $this->export(['/' => [
             'params' => ['yiisoft/aliases' => ['config/params.php'], ...$bridge('params.php'), '/' => ['params.php']],
+            'goaop-kernel' => $bridge('kernel.php'),
             'params-console' => [
                 'yiisoft/yii-console' => ['config/params-console.php'],
                 'yiisoft/yii-event' => ['?config/params-console.php'],

@@ -26,7 +26,7 @@ of a Yii3 application do and times every phase with `hrtime()`:
 | Phase | What happens |
 |---|---|
 | `autoload` | `vendor/autoload.php` |
-| `entryLine` | `AopBootstrap::init()`: params of the application, tagged aspects, aspect kernel (bridge scenarios only) |
+| `entryLine` | the runner is created, then `AopBootstrap::init()` reads its config: params of the runner, tagged aspects, aspect kernel (bridge scenarios only) |
 | `container` | the runner builds the container (`ConsoleApplicationRunner::getContainer()`) |
 | `bootstrap` | the `bootstrap` config group, with the bridge callback attaching the container to the kernel |
 | `firstCalls` | first call of every service: (woven) classes loaded, services and aspects resolved |
