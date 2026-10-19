@@ -28,6 +28,9 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   kernel before the runner builds the container.
 - `src/Kernel/AspectYii3Kernel.php` — `configureAop()` registers every aspect with `addLazyService()`; the factory
   resolves it through `ContainerResolver` (the Yii container, attached later by the bootstrap callback).
+  `attachContainer()` also makes the Yii container the PSR-11 delegate of the aspect container
+  (`AspectContainer::setDelegate()`). The factory still needs `ContainerResolver`: asking the aspect container for
+  the aspect's own id would return the aspect being built, and aspects are never discovered in the delegate.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — aspects tagged `goaop.aspect` (the `aspectTag` param) in the container config.
