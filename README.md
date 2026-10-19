@@ -260,7 +260,8 @@ environment in `config/environments/<env>/params.php`:
 A malformed parameter fails fast with a message naming it.
 
 The kernel is available in the container as `Go\Core\AspectKernel` (and `Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel`),
-its aspect container as `Go\Core\AspectContainer`.
+its aspect container as `Go\Core\AspectContainer`. Once the `bootstrap` callback ran, the aspect container delegates to
+the Yii container: `get()` and `has()` resolve an id it does not know from the Yii container.
 
 ## Console commands
 

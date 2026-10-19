@@ -22,6 +22,8 @@ use LogicException;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use UnexpectedValueException;
 use Yiisoft\Di\Container;
@@ -80,6 +82,24 @@ final class AspectYii3KernelTest extends TestCase
             $container->get(GreetingAspect::class),
             new ReflectionClass(GreetingAspect::class)->initializeLazyObject($aspect),
         );
+    }
+
+    public function testAspectContainerDelegatesToTheAttachedContainer(): void
+    {
+        $kernel    = self::bootKernel([GreetingAspect::class]);
+        $container = new Container(ContainerConfig::create()->withDefinitions([
+            LoggerInterface::class => NullLogger::class,
+        ]));
+        $kernel->attachContainer($container);
+
+        $aspectContainer = $kernel->getContainer();
+
+        $this->assertTrue($aspectContainer->has(LoggerInterface::class));
+        $this->assertSame($container->get(LoggerInterface::class), $aspectContainer->get(LoggerInterface::class));
+        // Its own services are not affected: the aspect is still the lazy service of the aspect container
+        $this->assertTrue(new ReflectionClass(GreetingAspect::class)->isUninitializedLazyObject(
+            $aspectContainer->getService(GreetingAspect::class),
+        ));
     }
 
     public function testServiceThatIsNotAnAspectIsReportedOnFirstUse(): void

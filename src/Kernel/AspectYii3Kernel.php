@@ -87,10 +87,14 @@ final class AspectYii3Kernel extends AspectKernel
 
     /**
      * Attaches the Yii container the aspects are resolved from
+     *
+     * It also becomes the delegate of the aspect container: an id the aspect container does not know (e.g. a service a
+     * custom aspect factory or a framework command asks for) is resolved from the Yii container.
      */
     public function attachContainer(ContainerInterface $container): void
     {
         $this->resolver()->attach($container);
+        $this->getContainer()->setDelegate($container);
     }
 
     public function isContainerAttached(): bool
