@@ -12,12 +12,14 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge;
 
+use Go\Instrument\FileSystem\Enumerator;
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Config\TaggedAspects;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
-use Go\Yii3\GoAopBridge\Kernel\EarlyLoadedClasses;
 use InvalidArgumentException;
+use LogicException;
+use ReflectionClass;
 use Yiisoft\Aliases\Aliases;
 use Yiisoft\Config\ConfigInterface;
 
@@ -37,8 +39,7 @@ use Yiisoft\Config\ConfigInterface;
  * ({@see self::CONFIG_GROUP}) and tagged aspects from its common "di" and "di-tags" groups ({@see TaggedAspects}).
  * Weaving then covers every class the runner autoloads while it builds the container, which a callback of the
  * "bootstrap" config group can not. A class loaded by reading that config itself (e.g. by a class constant in a
- * definition) can not be woven: when the kernel would transform it, an error names it once the bootstrap callback
- * attached the container ({@see EarlyLoadedClasses}).
+ * definition) can not be woven: in debug mode, such a class within the woven paths is reported.
  */
 final class AopBootstrap
 {
@@ -76,13 +77,9 @@ final class AopBootstrap
                 self::CONFIG_GROUP,
             ));
         }
-        // The config is PHP, reading it loads the classes it references: checked when the container is attached
-        $earlyLoaded = new EarlyLoadedClasses();
-        $params      = $earlyLoaded->record(
-            'the config parameters',
-            'Use the value instead of the class in the parameters, or exclude the class from weaving ("excludePaths").',
-            static fn(): array => $config->get(self::CONFIG_GROUP),
-        );
+        // The config is PHP: reading it loads every class it references, checked in debug mode once the kernel runs
+        $classesBefore = get_declared_classes();
+        $params        = $config->get(self::CONFIG_GROUP);
 
         $bridgeParams = $params[KernelOptions::PARAMS_KEY] ?? null;
         if (!is_array($bridgeParams)) {
@@ -91,17 +88,44 @@ final class AopBootstrap
                 KernelOptions::PARAMS_KEY,
             ));
         }
-        $options = KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? []));
-        $aspects = AspectList::fromParams($bridgeParams)->merge($earlyLoaded->record(
-            'the "di" and "di-tags" config groups for tagged aspects',
-            'Use the value instead of the class in the definitions of these groups, or set the "aspectTag" parameter '
-            . 'to null and list the aspects in the "aspects" parameter: the definitions are then read by the runner '
-            . 'only, after the kernel started.',
-            static fn(): AspectList => TaggedAspects::fromParams($bridgeParams)->collect($config),
-        ));
-        $kernel->boot($options, $aspects, $earlyLoaded);
+        $kernel->boot(
+            KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? [])),
+            AspectList::fromParams($bridgeParams)->merge(TaggedAspects::fromParams($bridgeParams)->collect($config)),
+        );
+        if ($kernel->getOptions()['debug']) {
+            self::assertNoWeavableClassLoaded(array_diff(get_declared_classes(), $classesBefore), $kernel->getOptions());
+        }
 
         return $kernel;
+    }
+
+    /**
+     * Ensures reading the config loaded no class the kernel may weave
+     *
+     * Such a class (e.g. referenced by a class constant or an enum case in a definition) was loaded before the kernel
+     * started, so it stays unwoven for the whole process. Debug mode only, as {@see AspectList::assertAspects()}:
+     * every class within the woven paths is reported, whether an aspect advises it or not.
+     *
+     * @param array<class-string> $classNames Classes declared while the config was read
+     * @param array{appDir: string, includePaths: array<string>, excludePaths: array<string>} $options Kernel options
+     */
+    private static function assertNoWeavableClassLoaded(array $classNames, array $options): void
+    {
+        $isWoven = new Enumerator($options['appDir'], $options['includePaths'], $options['excludePaths'])->getPathFilter();
+        foreach ($classNames as $className) {
+            $fileName = new ReflectionClass($className)->getFileName();
+            if ($fileName !== false && $isWoven($fileName)) {
+                throw new LogicException(sprintf(
+                    'Class "%s" was loaded while AopBootstrap::init() read the config (the parameters, or the "di" and '
+                    . '"di-tags" groups for tagged aspects) before the aspect kernel started, so it can not be woven. '
+                    . 'Use the value instead of the class there (e.g. of a class constant), exclude the class from '
+                    . 'weaving ("excludePaths"), or, when a tagged definition references it, set the "aspectTag" '
+                    . 'parameter to null and list the aspects in the "aspects" parameter: the definitions are then read '
+                    . 'by the runner only, after the kernel started.',
+                    $className,
+                ));
+            }
+        }
     }
 
     /**

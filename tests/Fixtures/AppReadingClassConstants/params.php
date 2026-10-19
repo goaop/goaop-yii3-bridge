@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use Go\Yii3\GoAopBridge\Tests\App\Service\Tone;
-
 return [
     'yiisoft/aliases' => [
         'aliases' => [
@@ -15,9 +13,5 @@ return [
     'goaop/goaop-yii3-bridge' => [
         'debug' => true,
         'excludePaths' => ['@src/Aspect'],
-    ],
-    // Loaded while the parameters are read: a class of the include paths that no aspect advises
-    'app' => [
-        'tone' => Tone::Loud,
     ],
 ];

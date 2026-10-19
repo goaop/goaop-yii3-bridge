@@ -11,7 +11,6 @@ declare(strict_types=1);
 namespace Go\Yii3\GoAopBridge\Tests\Weaving;
 
 use Go\Yii3\GoAopBridge\Tests\App\Service\ConfiguredService;
-use Go\Yii3\GoAopBridge\Tests\App\Service\Tone;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 use LogicException;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
@@ -19,7 +18,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * The entry line reads the configuration before the kernel starts: a class the configuration references (here by a
- * class constant in a definition) is loaded then, and can not be woven any more
+ * class constant in a definition) is loaded then, and can not be woven any more. Debug mode reports it.
  */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -27,17 +26,23 @@ final class ClassLoadedByConfigTest extends WeavingTestCase
 {
     private const string CONFIG_DIRECTORY = 'tests/Fixtures/AppReadingClassConstants';
 
-    public function testAdvisedClassLoadedWhileTheTagsAreReadIsReported(): void
+    public function testClassOfTheWovenPathsLoadedWhileTheConfigIsReadIsReportedInDebugMode(): void
     {
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage(
-            'Class "' . ConfiguredService::class . '" was loaded while AopBootstrap::init() read the "di" and "di-tags" '
-            . 'config groups for tagged aspects, before the aspect kernel started',
+            'Class "' . ConfiguredService::class . '" was loaded while AopBootstrap::init() read the config',
         );
 
-        // Reported once the container is attached: telling whether the kernel weaves a class may need the aspects
         TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY);
-        TestApplication::container(configDirectory: self::CONFIG_DIRECTORY);
+    }
+
+    public function testProductionModeDoesNotCheckTheClassesLoadedByTheConfig(): void
+    {
+        $kernel = TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY, environment: 'production');
+
+        $this->assertTrue($kernel->isInitialized());
+        // Loaded before the kernel started: it stays unwoven, the debug mode check is what reports it
+        $this->assertTrue(class_exists(ConfiguredService::class, false));
     }
 
     public function testListedAspectAdvisesClassesReferencedByTheDefinitions(): void
@@ -45,8 +50,6 @@ final class ClassLoadedByConfigTest extends WeavingTestCase
         // The aspect is listed and the tag lookup is off: the runner loads the class, after the kernel started
         TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY, environment: 'untagged');
         $this->assertFalse(class_exists(ConfiguredService::class, false));
-        // Loaded while the parameters were read, but not transformed by the kernel: no error
-        $this->assertTrue(enum_exists(Tone::class, false));
 
         $container = TestApplication::container(configDirectory: self::CONFIG_DIRECTORY, environment: 'untagged');
         $service   = $container->get(ConfiguredService::class);

@@ -40,11 +40,6 @@ final class AspectYii3Kernel extends AspectKernel
     private ?ContainerResolver $resolver = null;
 
     /**
-     * Classes the entry line loaded before the kernel started, checked once the container is attached
-     */
-    private ?EarlyLoadedClasses $earlyLoadedClasses = null;
-
-    /**
      * Returns the kernel of the application
      *
      * @throws AspectException When another kernel class was instantiated in this process before
@@ -67,19 +62,13 @@ final class AspectYii3Kernel extends AspectKernel
      * Initializes the kernel and registers the aspects as lazily resolved services
      *
      * Only the first call initializes the kernel, as for {@see AspectKernel::init()}.
-     *
-     * @param EarlyLoadedClasses|null $earlyLoadedClasses Classes loaded before, checked by {@see attachContainer()}
      */
-    public function boot(
-        KernelOptions $options,
-        AspectList $aspects,
-        ?EarlyLoadedClasses $earlyLoadedClasses = null,
-    ): void {
+    public function boot(KernelOptions $options, AspectList $aspects): void
+    {
         if ($this->wasInitialized) {
             return;
         }
-        $this->aspects            = $aspects;
-        $this->earlyLoadedClasses = $earlyLoadedClasses;
+        $this->aspects = $aspects;
         $this->init($options->toArray());
     }
 
@@ -98,22 +87,10 @@ final class AspectYii3Kernel extends AspectKernel
 
     /**
      * Attaches the Yii container the aspects are resolved from
-     *
-     * Then checks the classes the entry line loaded before the kernel started: telling whether the kernel weaves one
-     * may need the aspects, which can only be created now.
-     *
-     * @throws LogicException When the kernel weaves a class loaded before it started
      */
     public function attachContainer(ContainerInterface $container): void
     {
         $this->resolver()->attach($container);
-
-        $earlyLoadedClasses       = $this->earlyLoadedClasses;
-        $this->earlyLoadedClasses = null;
-        if ($earlyLoadedClasses !== null) {
-            $options = $this->getOptions();
-            $earlyLoadedClasses->assertNotWoven($options['appDir'], $options['includePaths'], $options['excludePaths']);
-        }
     }
 
     public function isContainerAttached(): bool

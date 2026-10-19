@@ -48,19 +48,19 @@ a large container configuration and no tagged aspects can set `'aspectTag' => nu
 
 ## Entry line from the config of the runner
 
-`AopBootstrap::init()` reads the config of the runner instead of a `Config` of its own (issue #3), and records the
-classes autoloaded meanwhile. A/B on 2026-10-19, same machine and session, one run after the other
-(`php benchmarks/run.php --modes=server-hot --requests=1000`, production mode, medians in ms). That machine was slower
-than the one of the full results below (baseline 2.2 ms instead of 1.6 ms), compare the columns, not the files:
+`AopBootstrap::init()` reads the config of the runner instead of a `Config` of its own (issue #3). A/B on
+2026-10-19, same machine and session, one run after the other (`php benchmarks/run.php --modes=server-hot --debug=0
+--requests=1000`, medians in ms). That machine was slower than the one of the full results below (baseline 2.1 ms
+instead of 1.6 ms), compare the columns, not the files:
 
 | Scenario | Overhead before | Overhead after | Entry line before | after | Container before | after | Bootstrap before | after |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|
-| empty | +0.77 | +0.65 | 0.76 | 0.92 | 0.58 | 0.34 | 0.08 | 0.11 |
-| aspects | +4.48 | +4.52 | 0.85 | 1.03 | 0.59 | 0.37 | 0.07 | 0.11 |
+| empty | +0.74 | +0.58 | 0.77 | 0.86 | 0.59 | 0.33 | 0.08 | 0.07 |
+| aspects | +4.79 | +4.32 | 0.89 | 0.97 | 0.61 | 0.34 | 0.08 | 0.07 |
 
 The parameters are built once, in the entry line, and the container build no longer builds them: the overhead stays
-the same within the noise, the `entryLine` budgets were raised by that share (0.25 ms). A request loads 2 more files
-(`config/kernel.php`, `EarlyLoadedClasses`). The full results below predate the change.
+the same within the noise, the `entryLine` budgets were raised by that share (0.25 ms). A request loads 1 more file
+(`config/kernel.php`). The full results below predate the change.
 
 ## Aspect count (opcache hot, 50 services)
 
