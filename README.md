@@ -213,9 +213,12 @@ asks the Yii container for the aspect:
 So an aspect depending on a database connection, an HTTP client or a heavy service doesn't create it on requests that
 never reach an advised method.
 
-PHP can't make a class without instance properties lazy. The weaver creates such an aspect when it reads the advices,
-and if the Yii container is not attached yet it does so directly, with `new`. A stateless aspect has nothing to
-inject, so this only fails, with a descriptive error, when its constructor requires arguments.
+An aspect is always the instance of the Yii container. PHP can't make a class without instance properties lazy, so the
+weaver creates such an aspect as soon as it reads the advices. That works once the container is attached; when a class
+is woven while the container is still being built, the bridge reports an error instead of creating the aspect around
+its definition. In debug mode that is the rule rather than the exception: the container loads every class with an
+array definition to validate it. Give such an aspect an instance property, e.g. a dependency injected by its
+constructor, and it is resolved lazily like any other.
 
 In debug mode the bridge checks that every tagged or listed class exists and implements `Go\Aop\Aspect`, and the error
 names the tag or parameter it comes from. Otherwise the aspect container would silently ignore it.
