@@ -12,8 +12,9 @@ declare(strict_types=1);
 return [
     // Production, opcache hot: what every web request pays
     ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'empty', 'metric' => 'overhead', 'max' => 1.0],
-    ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'empty', 'metric' => 'entryLine', 'max' => 1.0],
-    ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'aspects', 'metric' => 'entryLine', 'max' => 1.25],
+    // The entry line builds the parameters the runner reuses (RESULTS.md, entry line from the config of the runner)
+    ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'empty', 'metric' => 'entryLine', 'max' => 1.25],
+    ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'aspects', 'metric' => 'entryLine', 'max' => 1.5],
     ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'aspects', 'metric' => 'bootstrap', 'max' => 0.25],
     ['mode' => 'server-hot', 'debug' => false, 'scenario' => 'aspects', 'metric' => 'firstCalls', 'max' => 2.0],
 

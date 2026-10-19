@@ -8,7 +8,9 @@ Re-run it after a change of the bridge or of its dependencies, and update this f
 
 - **Production, opcache hot, no aspects: +0.45 ms per request** (median; the synthetic baseline boots in 1.62 ms).
   It is the entry line (0.53 ms) and the bootstrap callback (0.04 ms); the container build and the calls of
-  unadvised services cost the same as without the bridge. The request includes 24 more files (the bridge, the aspect
+  unadvised services cost the same as without the bridge. Since the entry line reads the config of the runner, it
+  also builds the parameters the runner used to build itself: about 0.2 ms moved from the container build into the
+  entry line, the overhead did not change (see [Entry line from the config of the runner](#entry-line-from-the-config-of-the-runner)). The request includes 24 more files (the bridge, the aspect
   kernel and its class loader), its memory peak does not change, and it never loads the weaver or a parser.
 - **Registering aspects is almost free.** With 1, 10 or 50 aspects the entry line stays between 0.53 and 0.65 ms
   over the runs (a few µs per aspect at most, below the noise) because aspects are only registered as deferred
@@ -34,7 +36,7 @@ the entry line):
 
 | Step | Time |
 |---|--:|
-| `Config` of the application, merged `params` group | 0.13 ms |
+| `Config` of the application, merged `params` group (now the config of the runner, which reuses the group) | 0.13 ms |
 | `KernelOptions` and `AspectList` from the parameters | 0.03 ms |
 | tagged aspects: merged `di` and `di-tags` groups, tag lookup | 0.06 ms |
 | aspect kernel initialization (framework services, class loader, cache index) | 0.13 ms |
@@ -43,6 +45,22 @@ The `di` group is merged by yiisoft/config for the tag lookup, and again by the 
 The merge grows with the size of the container configuration: with 1,000 more array definitions the tag lookup took
 0.73 ms (0.63 ms of it merging the group, while the runner needed 1.33 ms to build the container). Applications with
 a large container configuration and no tagged aspects can set `'aspectTag' => null` to skip it.
+
+## Entry line from the config of the runner
+
+`AopBootstrap::init()` reads the config of the runner instead of a `Config` of its own (issue #3), and records the
+classes autoloaded meanwhile. A/B on 2026-10-19, same machine and session, one run after the other
+(`php benchmarks/run.php --modes=server-hot --requests=1000`, production mode, medians in ms). That machine was slower
+than the one of the full results below (baseline 2.2 ms instead of 1.6 ms), compare the columns, not the files:
+
+| Scenario | Overhead before | Overhead after | Entry line before | after | Container before | after | Bootstrap before | after |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|
+| empty | +0.77 | +0.65 | 0.76 | 0.92 | 0.58 | 0.34 | 0.08 | 0.11 |
+| aspects | +4.48 | +4.52 | 0.85 | 1.03 | 0.59 | 0.37 | 0.07 | 0.11 |
+
+The parameters are built once, in the entry line, and the container build no longer builds them: the overhead stays
+the same within the noise, the `entryLine` budgets were raised by that share (0.25 ms). A request loads 2 more files
+(`config/kernel.php`, `EarlyLoadedClasses`). The full results below predate the change.
 
 ## Aspect count (opcache hot, 50 services)
 
