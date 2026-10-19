@@ -97,6 +97,11 @@ final class ConsoleApplicationTest extends TestCase
             'PATH'                  => (string) getenv('PATH'),
             ...$env,
         ];
+        // Lets the ini of the test run reach the process, e.g. the JIT disabled for PHP 8.5.11 (AGENTS.md)
+        $iniScanDir = getenv('PHP_INI_SCAN_DIR');
+        if (is_string($iniScanDir)) {
+            $env['PHP_INI_SCAN_DIR'] = $iniScanDir;
+        }
 
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $env);
         $this->assertIsResource($process);
