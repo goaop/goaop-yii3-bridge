@@ -103,3 +103,64 @@ composer benchmark          # boot-time benchmarks, see benchmarks/README.md (--
   `registerAspect()` (removed in framework 4.x: aspects are `add()`/`addLazyService()` services).
 - The upstream 4.x line is unreleased: composer requires `minimum-stability: dev` + `prefer-stable: true`. Do not
   "fix" that to stable until goaop/framework 4.0 is tagged.
+
+## Remote sessions (Claude Code on the web)
+
+Copied from `tests/AGENTS.md` of goaop/framework (§ Remote sessions), where it was diagnosed; it applies here as is.
+
+### Installing the dependencies, phpstan included
+
+The session's GitHub proxy serves `api.github.com` / `codeload.github.com` dist zips only for the repositories
+attached to the session. Every other package answers `403 "GitHub access to this repository is not enabled for this
+session"` (no token or composer option changes that), so composer falls back to slow `git clone`s, and
+phpstan/phpstan, which has no `source` (it is just the phar), aborts the install with "Could not authenticate against
+github.com".
+
+Fix A (recommended, dist for everything): a packagist mirror that hosts its own dist zips; non-GitHub hosts are not
+gated by the proxy. mirrors.cloud.tencent.com is up to date and its zips are byte-identical to the GitHub tags
+(mirrors.aliyun.com, mirrors.huaweicloud.com and packagist.jp do not work).
+
+```bash
+# global (session-local) config, composer.json stays untouched; composer.lock is gitignored, a stale one would pin
+# api.github.com dist URLs
+COMPOSER_ALLOW_SUPERUSER=1 composer config -g repos.packagist composer https://mirrors.cloud.tencent.com/composer
+rm -f composer.lock
+COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction
+./vendor/bin/phpstan --version
+```
+
+Fix B (when the mirror is unreachable): seed composer's dist cache for phpstan/phpstan with a zip of a shallow clone
+of the release tag (composer looks up `<cache-files-dir>/phpstan/phpstan/<sha1(dist url)>.zip`), and take every other
+package from git:
+
+```bash
+[ -f composer.lock ] || COMPOSER_ALLOW_SUPERUSER=1 composer update --no-install --no-interaction
+eval "$(php -r '$l = json_decode(file_get_contents("composer.lock"), true);
+  foreach (array_merge($l["packages"], $l["packages-dev"]) as $p) {
+      if ($p["name"] === "phpstan/phpstan") {
+          printf("V=%s REF=%s KEY=%s\n", $p["version"], $p["dist"]["reference"], sha1($p["dist"]["url"]));
+      }
+  }')"
+TMP=$(mktemp -d); git clone -q --depth 1 --branch "$V" https://github.com/phpstan/phpstan.git "$TMP/phpstan"
+CACHE="$(composer config --global cache-files-dir 2>/dev/null)/phpstan/phpstan"; mkdir -p "$CACHE"
+git -C "$TMP/phpstan" archive --format=zip --prefix="phpstan-phpstan-${REF:0:7}/" -o "$CACHE/$KEY.zip" HEAD
+COMPOSER_ALLOW_SUPERUSER=1 composer install --prefer-source --no-interaction
+```
+
+`composer test` and `composer analyse` refuse to run as root with plugins disabled: run `vendor/bin/phpunit` and
+`vendor/bin/phpstan analyse` directly, or prefix them with `COMPOSER_ALLOW_SUPERUSER=1`.
+
+### PHP 8.5.11 tracing JIT
+
+PHP 8.5.11 has an internal bug in the tracing JIT: once the JIT is warm, the pointcut parser of the framework rejects
+valid pointcuts (`Unexpected token \`, `Unexpected ( at line 1`, ...). Not a bridge or framework bug. Session images
+may enable opcache and `opcache.jit=tracing` for the CLI; disable the JIT for the test run (the functional tests
+forward `PHP_INI_SCAN_DIR` to the `yii` processes they start):
+
+```bash
+mkdir -p /tmp/php-nojit && echo 'opcache.jit=disable' > /tmp/php-nojit/zz-nojit.ini
+PHP_INI_SCAN_DIR=":/tmp/php-nojit" vendor/bin/phpunit
+```
+
+Once `php -v` reports 8.5.12 or higher, check that the tests pass with the tracing JIT on and remove this item. The
+benchmarks set their own ini (JIT off unless `--jit` is given).
