@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Tests\Functional;
 
+use Go\Yii3\GoAopBridge\Tests\App\Service\ConfiguredService;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 use PHPUnit\Framework\TestCase;
 
@@ -62,18 +63,39 @@ final class ConsoleApplicationTest extends TestCase
         $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingServiceOriginalTrait.php');
     }
 
+    public function testClassLoadedByTheConfigIsReportedInProduction(): void
+    {
+        $env = [
+            'GOAOP_TEST_CONFIG_DIRECTORY' => 'tests/Fixtures/AppReadingClassConstants',
+            'GOAOP_TEST_ENVIRONMENT'      => 'production',
+        ];
+        $message = 'Class "' . ConfiguredService::class . '" was loaded while AopBootstrap::init() read the "di" and '
+            . '"di-tags" config groups for tagged aspects';
+
+        // The first run weaves the class into the cache to find out, the second one finds it there
+        foreach (['cold cache', 'warm cache'] as $run) {
+            [$exitCode, $output] = $this->yii(['list'], env: $env);
+
+            $this->assertNotSame(0, $exitCode, $run);
+            $this->assertStringContainsString($message, $output, $run);
+        }
+        $this->assertFileExists($this->runtime . '/aop/src/Service/ConfiguredService.php');
+    }
+
     /**
-     * @param list<string> $arguments
+     * @param list<string>          $arguments
+     * @param array<string, string> $env       Additional environment variables
      *
      * @return array{int, string}
      */
-    private function yii(array $arguments, bool $entryLine = true): array
+    private function yii(array $arguments, bool $entryLine = true, array $env = []): array
     {
         $command = [PHP_BINARY, TestApplication::rootPath() . '/tests/Support/App/yii', ...$arguments];
         $env     = [
             'GOAOP_TEST_RUNTIME'    => $this->runtime,
             'GOAOP_TEST_ENTRY_LINE' => $entryLine ? '1' : '0',
             'PATH'                  => (string) getenv('PATH'),
+            ...$env,
         ];
 
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $env);

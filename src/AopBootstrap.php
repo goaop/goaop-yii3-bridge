@@ -16,6 +16,7 @@ use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Config\TaggedAspects;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
+use Go\Yii3\GoAopBridge\Kernel\EarlyLoadedClasses;
 use InvalidArgumentException;
 use Yiisoft\Aliases\Aliases;
 use Yiisoft\Config\ConfigInterface;
@@ -35,7 +36,8 @@ use Yiisoft\Config\ConfigInterface;
  * The options and aspects are read from that config, so the entry line sees the parameters of the runner
  * ({@see self::CONFIG_GROUP}) and tagged aspects from its common "di" and "di-tags" groups ({@see TaggedAspects}).
  * Weaving then covers every class the runner autoloads while it builds the container, which a callback of the
- * "bootstrap" config group can not.
+ * "bootstrap" config group can not. A class loaded by reading that config itself (e.g. by a class constant in a
+ * definition) can not be woven: when the kernel would transform it, an error names it ({@see EarlyLoadedClasses}).
  */
 final class AopBootstrap
 {
@@ -73,7 +75,13 @@ final class AopBootstrap
                 self::CONFIG_GROUP,
             ));
         }
-        $params = $config->get(self::CONFIG_GROUP);
+        // The config is PHP, reading it loads the classes it references: they are checked once the kernel runs
+        $earlyLoaded = new EarlyLoadedClasses();
+        $params      = $earlyLoaded->record(
+            'the config parameters',
+            'Use the value instead of the class in the parameters, or exclude the class from weaving ("excludePaths").',
+            static fn(): array => $config->get(self::CONFIG_GROUP),
+        );
 
         $bridgeParams = $params[KernelOptions::PARAMS_KEY] ?? null;
         if (!is_array($bridgeParams)) {
@@ -82,10 +90,16 @@ final class AopBootstrap
                 KernelOptions::PARAMS_KEY,
             ));
         }
-        $kernel->boot(
-            KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? [])),
-            AspectList::fromParams($bridgeParams)->merge(TaggedAspects::fromParams($bridgeParams)->collect($config)),
-        );
+        $options = KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? []));
+        $aspects = AspectList::fromParams($bridgeParams)->merge($earlyLoaded->record(
+            'the "di" and "di-tags" config groups for tagged aspects',
+            'Use the value instead of the class in the definitions of these groups, or set the "aspectTag" parameter '
+            . 'to null and list the aspects in the "aspects" parameter: the definitions are then read by the runner '
+            . 'only, after the kernel started.',
+            static fn(): AspectList => TaggedAspects::fromParams($bridgeParams)->collect($config),
+        ));
+        $kernel->boot($options, $aspects);
+        $earlyLoaded->assertNotWoven();
 
         return $kernel;
     }

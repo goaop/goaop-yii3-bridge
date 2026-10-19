@@ -189,6 +189,13 @@ Alternatively, list the aspect classes in the `aspects` parameter of `config/com
 Both ways can be combined, and an aspect found by both is registered once. Tagged services must be registered under
 their class name, the way the container validates tags.
 
+To find the tags, the entry line evaluates the common `di` and `di-tags` groups before the kernel starts. Any class
+those files load, e.g. by a class constant or an enum case in a definition, is loaded unwoven. When the kernel would
+weave such a class, `AopBootstrap::init()` fails with an error naming it, instead of letting it run without its
+advices. Use the value instead of the class there, or set `aspectTag` to `null` and list your aspects in `aspects`:
+the definitions are then read by the runner only, after the kernel started. The same check covers the classes the
+parameters load.
+
 See the Go! AOP documentation on [advices](https://github.com/goaop/framework/blob/master/docs/advices.md) and
 [pointcuts](https://github.com/goaop/framework/blob/master/docs/pointcuts.md) for the full syntax.
 
@@ -296,6 +303,8 @@ The full results, per mode and phase, are in [benchmarks/RESULTS.md](benchmarks/
 - Only classes under `appDir` and `includePaths` are woven. Vendor code is not.
 - Classes loaded before `AopBootstrap::init()`, such as `App\Environment` and anything the entry script touches
   before that line, can't be woven.
+- Classes the configuration loads while the entry line reads it (the parameters, and the `di`/`di-tags` groups for
+  tagged aspects) can't be woven either: `AopBootstrap::init()` reports the ones the kernel would weave.
 - Aspects need no weaving themselves: exclude their directory (e.g. `'excludePaths' => ['@src/Aspect']`). An aspect
   that depends on a class it advises creates a circular dependency, which `aop:debug:weaving` reports.
 - The aspect kernel is process-global. Long-running workers (RoadRunner, Swoole, FrankenPHP) initialize it once per

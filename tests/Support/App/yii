@@ -9,11 +9,15 @@ use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 /*
  * Console entry script of the fixture application, laid out like the one of the yiisoft/app template.
  * GOAOP_TEST_ENTRY_LINE=0 skips the entry line, so the kernel is initialized by the bootstrap config group.
+ * GOAOP_TEST_CONFIG_DIRECTORY and GOAOP_TEST_ENVIRONMENT select another configuration of the fixture classes.
  */
 
 require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
 
-$runner = TestApplication::runner();
+$runner = TestApplication::runner(
+    configDirectory: getenv('GOAOP_TEST_CONFIG_DIRECTORY') ?: TestApplication::CONFIG_DIRECTORY,
+    environment: getenv('GOAOP_TEST_ENVIRONMENT') ?: null,
+);
 if (getenv('GOAOP_TEST_ENTRY_LINE') !== '0') {
     AopBootstrap::init($runner->getConfig(), rootPath: TestApplication::rootPath());
 }

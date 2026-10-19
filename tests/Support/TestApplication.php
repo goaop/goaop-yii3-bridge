@@ -57,19 +57,27 @@ final class TestApplication
      * The entry line of the application: initializes the kernel from the config of the runner, before the runner
      * builds the container
      */
-    public static function initKernel(bool $debug = true, string $configDirectory = self::CONFIG_DIRECTORY): AspectYii3Kernel
-    {
-        return AopBootstrap::init(self::runner($debug, $configDirectory)->getConfig(), self::rootPath());
+    public static function initKernel(
+        bool $debug = true,
+        string $configDirectory = self::CONFIG_DIRECTORY,
+        ?string $environment = null,
+    ): AspectYii3Kernel {
+        return AopBootstrap::init(self::runner($debug, $configDirectory, $environment)->getConfig(), self::rootPath());
     }
 
     /**
-     * Returns the console runner of the process, one per mode and config directory, as an entry script creates it
+     * Returns the console runner of the process, one per mode, config directory and environment, as an entry script
+     * creates it
      */
-    public static function runner(bool $debug = true, string $configDirectory = self::CONFIG_DIRECTORY): ConsoleApplicationRunner
-    {
-        return self::$runners[$configDirectory][(int) $debug] ??= new ConsoleApplicationRunner(
+    public static function runner(
+        bool $debug = true,
+        string $configDirectory = self::CONFIG_DIRECTORY,
+        ?string $environment = null,
+    ): ConsoleApplicationRunner {
+        return self::$runners[$configDirectory . '|' . $environment][(int) $debug] ??= new ConsoleApplicationRunner(
             rootPath: self::rootPath(),
             debug: $debug,
+            environment: $environment,
             configDirectory: $configDirectory,
         );
     }
@@ -77,9 +85,12 @@ final class TestApplication
     /**
      * Builds the container like the console runner does, then runs the "bootstrap-console" callbacks
      */
-    public static function container(bool $debug = true, string $configDirectory = self::CONFIG_DIRECTORY): ContainerInterface
-    {
-        $runner    = self::runner($debug, $configDirectory);
+    public static function container(
+        bool $debug = true,
+        string $configDirectory = self::CONFIG_DIRECTORY,
+        ?string $environment = null,
+    ): ContainerInterface {
+        $runner    = self::runner($debug, $configDirectory, $environment);
         $container = $runner->getContainer();
 
         $bootstrap = $runner->getConfig()->get('bootstrap-console');
