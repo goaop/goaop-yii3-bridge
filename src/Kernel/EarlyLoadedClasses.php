@@ -14,6 +14,7 @@ namespace Go\Yii3\GoAopBridge\Kernel;
 
 use Closure;
 use Go\Instrument\ClassLoading\AopComposerLoader;
+use Go\Instrument\FileSystem\Enumerator;
 use Go\Instrument\Transformer\FilterInjectorTransformer;
 use LogicException;
 use ReflectionClass;
@@ -23,8 +24,9 @@ use ReflectionClass;
  *
  * The configuration is PHP: reading the parameters and the tags of the container definitions loads every class it
  * references, e.g. by a class constant or an enum case. Such a class is loaded before weaving starts and stays
- * unwoven for the rest of the process. Once the kernel runs, its class loader tells whether it transforms the class,
- * and such a class is reported instead of running without its advices.
+ * unwoven for the rest of the process. Once the kernel runs and the Yii container is attached (the aspects the weaver
+ * needs come from the container), the class loader of the kernel tells whether it transforms the class: such a class
+ * is reported instead of running without its advices.
  */
 final class EarlyLoadedClasses
 {
@@ -59,24 +61,29 @@ final class EarlyLoadedClasses
     }
 
     /**
-     * Ensures the aspect kernel, initialized now, does not transform any recorded class
+     * Ensures the aspect kernel does not transform any recorded class, called once the Yii container is attached
      *
-     * In production with a warm cache only the class loader is asked. Otherwise a recorded class within the include
-     * paths is woven once, as the class loader would do it, which also fills the cache for it.
+     * Only classes within the paths the kernel weaves are checked, with the path filter of its class loader. In
+     * production with a warm cache the class loader is asked. Otherwise such a class is woven once, as the class
+     * loader would do it, which also fills the cache for it.
+     *
+     * @param array<string> $includePaths Options of the kernel, as normalized by it
+     * @param array<string> $excludePaths
      *
      * @throws LogicException When the kernel transforms one of the classes, which then run without their advices
      */
-    public function assertNotWoven(): void
+    public function assertNotWoven(string $appDir, array $includePaths, array $excludePaths): void
     {
         $loader = $this->classes === [] ? null : self::findAopLoader();
         if ($loader === null) {
             return;
         }
+        $isWeavable = new Enumerator($appDir, $includePaths, $excludePaths)->getPathFilter();
         foreach ($this->classes as $className => [$origin, $remedy]) {
             $isLoaded = class_exists($className, false) || interface_exists($className, false)
                 || trait_exists($className, false);
             $fileName = $isLoaded ? new ReflectionClass($className)->getFileName() : false;
-            if ($fileName !== false && self::isWoven($loader, $className, $fileName)) {
+            if ($fileName !== false && $isWeavable($fileName) && self::isWoven($loader, $className, $fileName)) {
                 throw new LogicException(sprintf(
                     'Class "%s" was loaded while AopBootstrap::init() read %s, before the aspect kernel started, so it '
                     . 'runs without the changes the kernel weaves into it (its advices). The class is loaded by the '

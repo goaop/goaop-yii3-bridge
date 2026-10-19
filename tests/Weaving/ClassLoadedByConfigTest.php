@@ -35,7 +35,9 @@ final class ClassLoadedByConfigTest extends WeavingTestCase
             . 'config groups for tagged aspects, before the aspect kernel started',
         );
 
+        // Reported once the container is attached: telling whether the kernel weaves a class may need the aspects
         TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY);
+        TestApplication::container(configDirectory: self::CONFIG_DIRECTORY);
     }
 
     public function testListedAspectAdvisesClassesReferencedByTheDefinitions(): void

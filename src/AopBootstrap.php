@@ -37,7 +37,8 @@ use Yiisoft\Config\ConfigInterface;
  * ({@see self::CONFIG_GROUP}) and tagged aspects from its common "di" and "di-tags" groups ({@see TaggedAspects}).
  * Weaving then covers every class the runner autoloads while it builds the container, which a callback of the
  * "bootstrap" config group can not. A class loaded by reading that config itself (e.g. by a class constant in a
- * definition) can not be woven: when the kernel would transform it, an error names it ({@see EarlyLoadedClasses}).
+ * definition) can not be woven: when the kernel would transform it, an error names it once the bootstrap callback
+ * attached the container ({@see EarlyLoadedClasses}).
  */
 final class AopBootstrap
 {
@@ -75,7 +76,7 @@ final class AopBootstrap
                 self::CONFIG_GROUP,
             ));
         }
-        // The config is PHP, reading it loads the classes it references: they are checked once the kernel runs
+        // The config is PHP, reading it loads the classes it references: checked when the container is attached
         $earlyLoaded = new EarlyLoadedClasses();
         $params      = $earlyLoaded->record(
             'the config parameters',
@@ -98,8 +99,7 @@ final class AopBootstrap
             . 'only, after the kernel started.',
             static fn(): AspectList => TaggedAspects::fromParams($bridgeParams)->collect($config),
         ));
-        $kernel->boot($options, $aspects);
-        $earlyLoaded->assertNotWoven();
+        $kernel->boot($options, $aspects, $earlyLoaded);
 
         return $kernel;
     }

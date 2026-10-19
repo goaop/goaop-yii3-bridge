@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Go\Yii3\GoAopBridge\Tests\App\Service\Tone;
 use Go\Yii3\GoAopBridge\Tests\Fixtures\StatelessAspect;
 
 return [
@@ -17,5 +18,10 @@ return [
         'aspects' => [
             StatelessAspect::class,
         ],
+    ],
+    // Loaded while the entry line reads the parameters: checking that the kernel would not weave it needs the
+    // aspects, which must wait for the container
+    'app' => [
+        'tone' => Tone::Loud,
     ],
 ];

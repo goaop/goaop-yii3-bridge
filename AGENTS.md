@@ -31,7 +31,7 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
 - `src/Kernel/EarlyLoadedClasses.php` — classes autoloaded while the entry line reads the config, reported when the
-  kernel would weave them.
+  kernel would weave them (checked by `AspectYii3Kernel::attachContainer()`).
 - `src/Config/TaggedAspects.php` — aspects tagged `goaop.aspect` (the `aspectTag` param) in the container config.
 - `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
@@ -44,8 +44,9 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   before the bootstrap group runs. The bootstrap fallback exists, but misses those classes.
 - Reading the config is evaluating PHP: it autoloads every class a parameter or a tagged definition references (class
   constants, enum cases), before the kernel starts. Such classes can not be woven; `EarlyLoadedClasses` records them
-  and reports the ones the kernel transforms (class loader lookup in production, the transforming stream filter
-  otherwise). Do not start the kernel before the tags are read: classes loaded in between would be woven without the
+  and `attachContainer()` reports the ones the kernel transforms (class loader lookup in production, the transforming
+  stream filter otherwise). Not earlier: weaving needs the aspects, and an aspect without instance properties can
+  only be created once the container is attached. Do not start the kernel before the tags are read: classes loaded in between would be woven without the
   tagged aspects, and that woven code would be cached.
 - The entry line reads the config of the runner, never a `Config` of its own: the runner evaluates every group with its
   own params group (`params-web`, `params-console`), and a definition of the common `di` group may read any of them.
