@@ -13,7 +13,7 @@ declare(strict_types=1);
 namespace Go\Yii3\GoAopBridge\Kernel;
 
 use Go\Aop\Aspect;
-use Go\Aop\AspectException;
+use Go\Aop\Exception\AspectException;
 use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Yii3\GoAopBridge\Config\AspectList;
