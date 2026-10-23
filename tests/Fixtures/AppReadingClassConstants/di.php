@@ -10,7 +10,8 @@ use Psr\Log\NullLogger;
 return [
     LoggerInterface::class => NullLogger::class,
 
-    // The constant loads the class while the entry line reads the tags, before the kernel starts
+    // The constant loads the class when this file is evaluated: by the runner, after the kernel started, unless the
+    // tag lookup is enabled ("tagged" environment), which evaluates it before
     ConfiguredService::class => [
         '__construct()' => ['prefix' => ConfiguredService::DEFAULT_PREFIX],
     ],

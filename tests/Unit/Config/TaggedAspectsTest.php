@@ -39,7 +39,7 @@ final class TaggedAspectsTest extends TestCase
             ],
         ]);
 
-        $aspects = (new TaggedAspects())->collect($config);
+        $aspects = (new TaggedAspects('goaop.aspect'))->collect($config);
 
         $this->assertSame(
             [ConfiguredServiceAspect::class, GreetingAspect::class, ReportAspect::class, PackageAspect::class],
@@ -49,7 +49,7 @@ final class TaggedAspectsTest extends TestCase
 
     public function testMissingGroupsMeanNoTaggedAspects(): void
     {
-        $this->assertCount(0, (new TaggedAspects())->collect(self::config([])));
+        $this->assertCount(0, (new TaggedAspects('goaop.aspect'))->collect(self::config([])));
     }
 
     public function testCustomTagIsCollected(): void
@@ -68,11 +68,11 @@ final class TaggedAspectsTest extends TestCase
         $this->assertCount(0, TaggedAspects::fromParams(['aspectTag' => null])->collect($config));
     }
 
-    public function testDefaultTagIsUsedWithoutParameter(): void
+    public function testCollectionIsOffWithoutParameter(): void
     {
         $config = self::config(['di' => [GreetingAspect::class => ['tags' => ['goaop.aspect']]]]);
 
-        $this->assertSame([GreetingAspect::class], TaggedAspects::fromParams([])->collect($config)->toArray());
+        $this->assertCount(0, TaggedAspects::fromParams([])->collect($config));
     }
 
     public function testInvalidTagParameterIsReported(): void
@@ -88,7 +88,7 @@ final class TaggedAspectsTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('The "goaop.aspect" tag of the "di" config group must contain aspect class names, "audit.aspect" given.');
 
-        (new TaggedAspects())->collect(self::config(['di' => ['audit.aspect' => ['tags' => ['goaop.aspect']]]]));
+        (new TaggedAspects('goaop.aspect'))->collect(self::config(['di' => ['audit.aspect' => ['tags' => ['goaop.aspect']]]]));
     }
 
     public function testTagMapThatIsNotAListIsReported(): void
@@ -96,7 +96,7 @@ final class TaggedAspectsTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('The "goaop.aspect" tag of the "di-tags" config group must be a list of aspect class names, string given.');
 
-        (new TaggedAspects())->collect(self::config(['di-tags' => ['goaop.aspect' => GreetingAspect::class]]));
+        (new TaggedAspects('goaop.aspect'))->collect(self::config(['di-tags' => ['goaop.aspect' => GreetingAspect::class]]));
     }
 
     /**

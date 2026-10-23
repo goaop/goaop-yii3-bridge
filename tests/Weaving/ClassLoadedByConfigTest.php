@@ -12,13 +12,13 @@ namespace Go\Yii3\GoAopBridge\Tests\Weaving;
 
 use Go\Yii3\GoAopBridge\Tests\App\Service\ConfiguredService;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
-use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * The entry line reads the configuration before the kernel starts: a class the configuration references (here by a
- * class constant in a definition) is loaded then, and can not be woven any more. Debug mode reports it.
+ * A definition references a class constant of the advised service. The entry line reads the definitions only for the
+ * opt-in tag lookup: by default the runner evaluates them after the kernel started, and the class is woven.
  */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -26,35 +26,39 @@ final class ClassLoadedByConfigTest extends WeavingTestCase
 {
     private const string CONFIG_DIRECTORY = 'tests/Fixtures/AppReadingClassConstants';
 
-    public function testClassOfTheWovenPathsLoadedWhileTheConfigIsReadIsReportedInDebugMode(): void
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function modes(): iterable
     {
-        $this->expectException(LogicException::class);
-        $this->expectExceptionMessage(
-            'Class "' . ConfiguredService::class . '" was loaded while AopBootstrap::init() read the config',
-        );
-
-        TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY);
+        yield 'debug mode' => [true];
+        yield 'production mode' => [false];
     }
 
-    public function testProductionModeDoesNotCheckTheClassesLoadedByTheConfig(): void
+    #[DataProvider('modes')]
+    public function testListedAspectAdvisesClassesReferencedByTheDefinitions(bool $debug): void
     {
-        $kernel = TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY, environment: 'production');
-
-        $this->assertTrue($kernel->isInitialized());
-        // Loaded before the kernel started: it stays unwoven, the debug mode check is what reports it
-        $this->assertTrue(class_exists(ConfiguredService::class, false));
-    }
-
-    public function testListedAspectAdvisesClassesReferencedByTheDefinitions(): void
-    {
-        // The aspect is listed and the tag lookup is off: the runner loads the class, after the kernel started
-        TestApplication::initKernel(configDirectory: self::CONFIG_DIRECTORY, environment: 'untagged');
+        TestApplication::initKernel(debug: $debug, configDirectory: self::CONFIG_DIRECTORY);
         $this->assertFalse(class_exists(ConfiguredService::class, false));
 
-        $container = TestApplication::container(configDirectory: self::CONFIG_DIRECTORY, environment: 'untagged');
-        $service   = $container->get(ConfiguredService::class);
+        $service = TestApplication::container(debug: $debug, configDirectory: self::CONFIG_DIRECTORY)
+            ->get(ConfiguredService::class);
         $this->assertInstanceOf(ConfiguredService::class, $service);
 
         $this->assertSame('woven configured', $service->describe());
+    }
+
+    #[DataProvider('modes')]
+    public function testTagLookupLoadsTheReferencedClassesBeforeWeaving(bool $debug): void
+    {
+        // The documented limit of the opt-in tag lookup, the same in both modes
+        TestApplication::initKernel(debug: $debug, configDirectory: self::CONFIG_DIRECTORY, environment: 'tagged');
+        $this->assertTrue(class_exists(ConfiguredService::class, false));
+
+        $service = TestApplication::container(debug: $debug, configDirectory: self::CONFIG_DIRECTORY, environment: 'tagged')
+            ->get(ConfiguredService::class);
+        $this->assertInstanceOf(ConfiguredService::class, $service);
+
+        $this->assertSame('configured', $service->describe());
     }
 }

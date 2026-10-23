@@ -151,6 +151,15 @@ final class PackageConfigTest extends TestCase
         self::bootstrap(self::container([Journal::class]));
     }
 
+    public function testTagLookupIsOptIn(): void
+    {
+        $params = self::requireConfig('params.php', []);
+        $this->assertIsArray($params['goaop/goaop-yii3-bridge']);
+
+        $this->assertNull($params['goaop/goaop-yii3-bridge']['aspectTag']);
+        $this->assertSame([], $params['goaop/goaop-yii3-bridge']['aspects']);
+    }
+
     public function testKernelGroupReturnsTheParametersOfItsConfig(): void
     {
         $bridge  = ['debug' => false];
@@ -191,6 +200,7 @@ final class PackageConfigTest extends TestCase
                 'debug'        => true,
                 'excludePaths' => ['@src/Aspect'],
                 'aspects'      => $aspects,
+                'aspectTag'    => 'goaop.aspect',
             ],
         ]);
 

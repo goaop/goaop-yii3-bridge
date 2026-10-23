@@ -16,7 +16,8 @@ return [
     'goaop/goaop-yii3-bridge' => [
         'debug' => true,
         'excludePaths' => ['@src/Aspect'],
-        // ReportAspect and ConfiguredServiceAspect are registered by the "goaop.aspect" tag (di.php, di-tags.php)
+        // The tag lookup is opt-in: ReportAspect and ConfiguredServiceAspect are tagged (di.php, di-tags.php)
+        'aspectTag' => 'goaop.aspect',
         'aspects' => [
             GreetingAspect::class,
         ],

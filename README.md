@@ -27,8 +27,8 @@ expression, and the engine weaves it in. Your services stay plain business logic
   implement an interface or get wrapped in a proxy, and the container builds and injects them as usual.
 - 🏷️ **PHP 8 attributes.** Advices are declared with `#[Before]`, `#[After]`, `#[Around]` and `#[AfterThrowing]` on
   the methods of your aspect, using pointcut expressions (`execution(public App\Service\**->*(*))`).
-- 💤 **Lazy aspects with Yii DI.** Every aspect is a regular service of the Yii container, registered by tagging it
-  `goaop.aspect`: constructor injection, autowiring and definitions work as for any other service. The engine resolves an aspect only when one of its advices
+- 💤 **Lazy aspects with Yii DI.** Every aspect is a regular service of the Yii container, listed in the bridge
+  parameters: constructor injection, autowiring and definitions work as for any other service. The engine resolves an aspect only when one of its advices
   runs for the first time. Until then the aspect class is not even loaded in production.
 - 🧩 **Yii3-native configuration.** The bridge plugs into [yiisoft/config](https://github.com/yiisoft/config) groups.
   Settings live under `params['goaop/goaop-yii3-bridge']`, accept aliases such as `@root`, `@runtime` and `@src`,
@@ -90,7 +90,7 @@ $runner->run();
 
 and `yii` does the same with its `ConsoleApplicationRunner` (`rootPath: __DIR__`).
 
-`AopBootstrap::init()` reads the bridge parameters, the aliases and the tagged aspects from the config of the runner:
+`AopBootstrap::init()` reads the bridge parameters and the aliases from the config of the runner:
 the parameters it sees are the ones of that runner (`params-web` or `params-console`, with `params` nested), the
 container definitions are evaluated with them, as the runner does later. The runner keeps that config, so the
 parameters are not built twice.
@@ -146,55 +146,48 @@ final readonly class LoggingAspect implements Aspect
 
 ### Registering aspects
 
-Tag the aspect with `goaop.aspect` in a container definition of the common `di` config group, e.g. in
-`config/common/di/aspects.php`. The same definition configures the constructor arguments that can't be autowired:
-
-```php
-use App\Aspect\AuditAspect;
-use App\Aspect\LoggingAspect;
-use Yiisoft\Definitions\Reference;
-
-return [
-    LoggingAspect::class => [
-        'tags' => ['goaop.aspect'],
-    ],
-    AuditAspect::class => [
-        '__construct()' => [
-            'logger' => Reference::to('auditLogger'),
-            'level'  => $params['app']['auditLevel'],
-        ],
-        'tags' => ['goaop.aspect'],
-    ],
-];
-```
-
-A definition with a dedicated `definition` key (`['definition' => static fn() => ..., 'tags' => ['goaop.aspect']]`)
-and a tag map in a common `di-tags` config group (`['goaop.aspect' => [LoggingAspect::class]]`) work too.
-
-The Yii container can only return tagged services by creating all of them. So the bridge reads the tag declarations
-from the configuration instead and creates no aspect until one of its advices runs. Keep these tags in the common
-groups: web and console processes share the woven cache, so they must weave the same aspects. Tags of
-`di-web`/`di-console` definitions and of service providers are not read.
-
-Alternatively, list the aspect classes in the `aspects` parameter of `config/common/params.php`:
+List the aspect classes in the `aspects` parameter, e.g. in `config/common/params.php`:
 
 ```php
 'goaop/goaop-yii3-bridge' => [
     'aspects' => [
         App\Aspect\LoggingAspect::class,
+        App\Aspect\AuditAspect::class,
     ],
 ],
 ```
 
-Both ways can be combined, and an aspect found by both is registered once. Tagged services must be registered under
-their class name, the way the container validates tags.
+Every aspect is a regular service of the Yii container. Its constructor arguments that can't be autowired come from a
+container definition, as for any other service:
 
-To find the tags, the entry line evaluates the common `di` and `di-tags` groups before the kernel starts. Any class
-those files (or the parameters) load, e.g. by a class constant or an enum case in a definition, is loaded unwoven. In
-debug mode, `AopBootstrap::init()` fails with an error naming such a class when it lies within the woven paths, whether
-an aspect advises it or not. Use the value instead of the class there, exclude the class from weaving
-(`excludePaths`), or set `aspectTag` to `null` and list your aspects in `aspects`: the definitions are then read by the
-runner only, after the kernel started.
+```php
+use App\Aspect\AuditAspect;
+use Yiisoft\Definitions\Reference;
+
+return [
+    AuditAspect::class => [
+        '__construct()' => [
+            'logger' => Reference::to('auditLogger'),
+            'level'  => $params['app']['auditLevel'],
+        ],
+    ],
+];
+```
+
+#### Tagging aspects (opt-in)
+
+Aspects can also be registered by a container tag. Set `'aspectTag' => 'goaop.aspect'`, then tag the definitions of
+the common `di` config group (`'tags' => ['goaop.aspect']`, also with a dedicated `definition` key), or list them in
+a common `di-tags` tag map (`['goaop.aspect' => [LoggingAspect::class]]`). Tagged services must be registered under
+their class name, the way the container validates tags. Both ways can be combined, and an aspect found by both is
+registered once.
+
+The lookup is off by default because of what it costs. The Yii container can only return tagged services by
+creating all of them, so the bridge reads the tag declarations from the configuration instead. These files are PHP,
+and the entry line evaluates them before the kernel starts: every class they reference, e.g. by a class constant or
+an enum case, is loaded at that moment and can't be woven any more. Only the common groups are read: web and console
+processes share the woven cache, so they must weave the same aspects. Tags of `di-web`/`di-console` definitions,
+`di-tags-web`/`di-tags-console` maps and service providers are not seen.
 
 See the Go! AOP documentation on [advices](https://github.com/goaop/framework/blob/master/docs/advices.md) and
 [pointcuts](https://github.com/goaop/framework/blob/master/docs/pointcuts.md) for the full syntax.
@@ -225,8 +218,8 @@ names the tag or parameter it comes from. Otherwise the aspect container would s
 
 ### Aspects contributed by packages
 
-A package tags its aspects in its own `di` config the same way, or contributes them from its own `config/params.php`
-(the `params` group is merged recursively and lists are appended):
+A package contributes its aspects from its own `config/params.php` (the `params` group is merged recursively and lists
+are appended):
 
 ```php
 return [
@@ -255,7 +248,7 @@ environment in `config/environments/<env>/params.php`:
 | `includePaths`  | `['@src']`         | Only these directories are woven. Keep it narrow. |
 | `excludePaths`  | `[]`               | Never woven. The cache directory and the framework are always excluded. |
 | `aspects`       | `[]`               | Aspect classes, resolved lazily from the Yii container. |
-| `aspectTag`     | `'goaop.aspect'`   | Container tag registering aspects, read from the common `di` and `di-tags` config groups. `null` disables it. |
+| `aspectTag`     | `null`             | Opt-in container tag registering aspects (e.g. `'goaop.aspect'`), read from the common `di` and `di-tags` config groups before the kernel starts. See [Tagging aspects](#tagging-aspects-opt-in). |
 
 A malformed parameter fails fast with a message naming it.
 
@@ -292,8 +285,8 @@ and never writes to it, so rebuild it on every deploy.
 Measured with the [benchmarks](benchmarks/README.md) (`composer benchmark`), on a small synthetic application whose
 baseline boots in about 1.5 ms with opcache:
 
-- In production, with opcache and a warm AOP cache, the bridge adds **about 0.5 ms per request without aspects**:
-  the entry line reads the params, the tagged aspects and starts the kernel. No aspect class is loaded at boot, and
+- In production, with opcache and a warm AOP cache, the bridge adds **about 0.3–0.5 ms per request without aspects**:
+  the entry line reads the params and starts the kernel. No aspect class is loaded at boot, and
   the weaver and the parsers are never loaded once the cache is warm.
 - Registering aspects costs a few µs per request at most; an aspect is resolved from the container (about 15 µs)
   only when one of its advices runs for the first time.
@@ -307,8 +300,8 @@ The full results, per mode and phase, are in [benchmarks/RESULTS.md](benchmarks/
 - Only classes under `appDir` and `includePaths` are woven. Vendor code is not.
 - Classes loaded before `AopBootstrap::init()`, such as `App\Environment` and anything the entry script touches
   before that line, can't be woven.
-- Classes the configuration loads while the entry line reads it (the parameters, and the `di`/`di-tags` groups for
-  tagged aspects) can't be woven either: in debug mode the bridge reports the ones within the woven paths.
+- Classes the configuration loads while the entry line reads it (the parameters, and with the opt-in tag lookup the
+  `di`/`di-tags` groups) can't be woven either.
 - Aspects need no weaving themselves: exclude their directory (e.g. `'excludePaths' => ['@src/Aspect']`). An aspect
   that depends on a class it advises creates a circular dependency, which `aop:debug:weaving` reports.
 - The aspect kernel is process-global. Long-running workers (RoadRunner, Swoole, FrankenPHP) initialize it once per

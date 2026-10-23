@@ -6,7 +6,7 @@ declare(strict_types=1);
  * An application whose configuration references classes of the fixture application (tests/Support/App/src), e.g.
  * by a class constant: the entry line loads them while it reads the configuration, before the kernel starts.
  *
- * Environments: "untagged" lists the aspect in the params instead of tagging it, "production" turns debug mode off.
+ * The aspect is listed in the params; the "tagged" environment enables the tag lookup on top.
  */
 return [
     '/' => [
@@ -47,14 +47,9 @@ return [
             '/' => ['$bootstrap'],
         ],
     ],
-    'untagged' => [
+    'tagged' => [
         'params' => [
-            '/' => ['untagged/params.php'],
-        ],
-    ],
-    'production' => [
-        'params' => [
-            '/' => ['production/params.php'],
+            '/' => ['tagged/params.php'],
         ],
     ],
 ];

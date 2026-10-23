@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Go\Yii3\GoAopBridge\Tests\App\Aspect\ConfiguredServiceAspect;
+
 return [
     'yiisoft/aliases' => [
         'aliases' => [
@@ -13,5 +15,8 @@ return [
     'goaop/goaop-yii3-bridge' => [
         'debug' => true,
         'excludePaths' => ['@src/Aspect'],
+        'aspects' => [
+            ConfiguredServiceAspect::class,
+        ],
     ],
 ];

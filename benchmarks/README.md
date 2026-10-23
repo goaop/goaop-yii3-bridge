@@ -17,8 +17,8 @@ statistic, with the environment). `benchmarks/var/` is generated and ignored by 
 `run.php` generates a synthetic application in `benchmarks/var/app`: `--services` autowired services (every even one
 configured by an array definition, which the container reflects while it is built in debug mode), each advised by one
 of `--aspects` aspects with a `#[Before]` advice. Half of the aspects are listed in the bridge parameters, the other
-half tagged `goaop.aspect` in the container configuration, and every aspect depends on a service (so it is a lazy
-proxy resolved from the Yii container).
+half tagged `goaop.aspect` in the container configuration (the `aspects` scenario enables the opt-in tag lookup),
+and every aspect depends on a service (so it is a lazy proxy resolved from the Yii container).
 
 [`public/index.php`](public/index.php) is the front controller. It starts the application the way the entry scripts
 of a Yii3 application do and times every phase with `hrtime()`:
@@ -26,7 +26,7 @@ of a Yii3 application do and times every phase with `hrtime()`:
 | Phase | What happens |
 |---|---|
 | `autoload` | `vendor/autoload.php` |
-| `entryLine` | the runner is created, then `AopBootstrap::init()` reads its config: params of the runner, tagged aspects, aspect kernel (bridge scenarios only) |
+| `entryLine` | the runner is created, then `AopBootstrap::init()` reads its config: params of the runner, tagged aspects when the lookup is enabled, aspect kernel (bridge scenarios only) |
 | `container` | the runner builds the container (`ConsoleApplicationRunner::getContainer()`) |
 | `bootstrap` | the `bootstrap` config group, with the bridge callback attaching the container to the kernel |
 | `firstCalls` | first call of every service: (woven) classes loaded, services and aspects resolved |
@@ -41,7 +41,7 @@ advice ran in the `aspects` scenario only.
 | Scenario | Application |
 |---|---|
 | `baseline` | without the bridge: no entry line, no bridge config |
-| `empty` | the bridge installed and started from the entry line, no aspect configured or tagged |
+| `empty` | the bridge installed and started from the entry line with its defaults, no aspect configured |
 | `aspects` | the bridge with the aspects advising every service |
 
 The **overhead** of a scenario is its median total minus the median total of the baseline.

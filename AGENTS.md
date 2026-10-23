@@ -33,7 +33,7 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   the aspect's own id would return the aspect being built, and aspects are never discovered in the delegate.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
-- `src/Config/TaggedAspects.php` — aspects tagged `goaop.aspect` (the `aspectTag` param) in the container config.
+- `src/Config/TaggedAspects.php` — the opt-in tag lookup (`aspectTag`, e.g. `goaop.aspect`) in the container config.
 - `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
@@ -44,11 +44,12 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   (>= 3.4) reflects every array definition while the container is built, and the HTTP runner creates the error handler
   before the bootstrap group runs. The bootstrap fallback exists, but misses those classes.
 - Reading the config is evaluating PHP: it autoloads every class a parameter or a tagged definition references (class
-  constants, enum cases), before the kernel starts. Such classes can not be woven; in debug mode
-  `AopBootstrap::init()` diffs `get_declared_classes()` around the read and reports the ones within the woven paths
-  (the framework's `Enumerator` path filter), advised or not. Keep that check simple: no weaving probe (it would need
-  the aspects before the container is attached). Do not start the kernel before the tags are read: classes loaded in
-  between would be woven without the tagged aspects, and that woven code would be cached.
+  constants, enum cases), before the kernel starts, and such classes can not be woven. That is why the tag lookup is
+  opt-in (`aspectTag` defaults to `null`) and the `aspects` parameter is the documented way: by default the entry line
+  reads only the parameters, the runner evaluates `di` after the kernel started. Do not add checks that behave
+  differently in debug mode (review of #3): they make development fail where production quietly works. Do not start
+  the kernel before the tags are read either: classes loaded in between would be woven without the tagged aspects,
+  and that woven code would be cached.
 - The entry line reads the config of the runner, never a `Config` of its own: the runner evaluates every group with its
   own params group (`params-web`, `params-console`), and a definition of the common `di` group may read any of them.
 - Aspects are registered inside `configureAop()`, before `AopComposerLoader` serves any class: registering them later

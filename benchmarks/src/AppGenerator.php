@@ -194,19 +194,22 @@ final readonly class AppGenerator
     private function params(Scenario $scenario): string
     {
         $aspects = '';
+        $tag     = 'null';
         if ($scenario === Scenario::Aspects) {
             for ($j = 0; $j < $this->aspects; $j += 2) {
                 $aspects .= "\n            \\" . $this->aspectClass($j) . '::class,';
             }
             $aspects .= "\n        ";
+            $tag      = "'goaop.aspect'";
         }
         $bridge = !$scenario->usesBridge() ? '' : <<<PHP
 
                 'goaop/goaop-yii3-bridge' => [
                     'debug' => getenv('BENCH_DEBUG') === '1',
                     'excludePaths' => ['@src/Aspect'],
-                    // Even aspects are listed here, odd ones are tagged "goaop.aspect" in di.php
+                    // Even aspects are listed here, odd ones are tagged "goaop.aspect" in di.php (opt-in lookup)
                     'aspects' => [{$aspects}],
+                    'aspectTag' => {$tag},
                 ],
             PHP;
 
