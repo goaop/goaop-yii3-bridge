@@ -15,6 +15,8 @@ namespace Go\Yii3\GoAopBridge\Tests\App\Service;
  */
 class ConfiguredService
 {
+    public const string DEFAULT_PREFIX = 'configured';
+
     public function __construct(private readonly string $prefix) {}
 
     public function describe(): string

@@ -37,13 +37,14 @@ $configDirectory = substr($appDirectory, strlen($rootPath) + 1) . '/config/' . $
 // The generated application is not known to composer.json; registered before the kernel wraps the loader
 $loader->addPsr4('Go\\Yii3\\GoAopBridge\\Benchmarks\\App\\', $appDirectory . '/src');
 
-// The entry line, as in src/bootstrap.php of the application
+$runner = new ConsoleApplicationRunner(rootPath: $rootPath, debug: $debug, configDirectory: $configDirectory);
+
+// The entry line, as in the entry scripts of the application: between the creation of the runner and its run
 if ($scenario !== 'baseline') {
-    AopBootstrap::init(rootPath: $rootPath, configDirectory: $configDirectory);
+    AopBootstrap::init($runner->getConfig(), $rootPath);
 }
 $marks['entryLine'] = hrtime(true);
 
-$runner    = new ConsoleApplicationRunner(rootPath: $rootPath, debug: $debug, configDirectory: $configDirectory);
 $container = $runner->getContainer();
 $marks['container'] = hrtime(true);
 

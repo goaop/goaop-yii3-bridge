@@ -7,12 +7,15 @@ use Go\Yii3\GoAopBridge\Tests\App\Service\ConfiguredService;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
+/** @var array{app: array{configuredPrefix: string}} $params */
+
 return [
     LoggerInterface::class => NullLogger::class,
 
-    // An array definition: in debug mode the container reflects (and so autoloads) the class while it is built
+    // An array definition: in debug mode the container reflects (and so autoloads) the class while it is built.
+    // Its argument is a parameter of the console runner ("params-console"), not of the common "params" group
     ConfiguredService::class => [
-        '__construct()' => ['prefix' => 'configured'],
+        '__construct()' => ['prefix' => $params['app']['configuredPrefix']],
     ],
 
     // Aspects are ordinary services: their constructor arguments come from regular definitions, and the

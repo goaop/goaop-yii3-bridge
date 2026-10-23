@@ -54,7 +54,7 @@ final class PackageConfigTest extends TestCase
         $this->assertSame(['source-directory' => 'config'], $composer['extra']['config-plugin-options']);
         $groups = $composer['extra']['config-plugin'];
         $this->assertIsArray($groups);
-        $this->assertSame(['params', 'di', 'bootstrap', 'params-console'], array_keys($groups));
+        $this->assertSame(['params', 'di', 'bootstrap', 'params-console', 'goaop-kernel'], array_keys($groups));
         foreach ($groups as $file) {
             $this->assertIsString($file);
             $this->assertFileExists(self::CONFIG_DIR . '/' . $file);
@@ -151,6 +151,30 @@ final class PackageConfigTest extends TestCase
         self::bootstrap(self::container([Journal::class]));
     }
 
+    public function testTagLookupIsOptIn(): void
+    {
+        $params = self::requireConfig('params.php', []);
+        $this->assertIsArray($params['goaop/goaop-yii3-bridge']);
+
+        $this->assertNull($params['goaop/goaop-yii3-bridge']['aspectTag']);
+        $this->assertSame([], $params['goaop/goaop-yii3-bridge']['aspects']);
+    }
+
+    public function testKernelGroupReturnsTheParametersOfItsConfig(): void
+    {
+        $bridge  = ['debug' => false];
+        $aliases = ['aliases' => ['@root' => '/app']];
+
+        $this->assertSame(
+            ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases],
+            self::requireConfig('kernel.php', ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases, 'app' => []]),
+        );
+        $this->assertSame(
+            ['goaop/goaop-yii3-bridge' => null, 'yiisoft/aliases' => null],
+            self::requireConfig('kernel.php', []),
+        );
+    }
+
     public function testConsoleParamsRegisterTheCommands(): void
     {
         $params = self::requireConfig('params-console.php', []);
@@ -176,6 +200,7 @@ final class PackageConfigTest extends TestCase
                 'debug'        => true,
                 'excludePaths' => ['@src/Aspect'],
                 'aspects'      => $aspects,
+                'aspectTag'    => 'goaop.aspect',
             ],
         ]);
 

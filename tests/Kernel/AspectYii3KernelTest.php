@@ -14,14 +14,16 @@ use Go\Core\AspectKernel;
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
-use Go\Yii3\GoAopBridge\Tests\App\Aspect\ConfiguredServiceAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Service\Journal;
 use Go\Yii3\GoAopBridge\Tests\Fixtures\ArgumentAspect;
+use Go\Yii3\GoAopBridge\Tests\Fixtures\StatelessAspect;
 use LogicException;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use UnexpectedValueException;
 use Yiisoft\Di\Container;
@@ -82,6 +84,24 @@ final class AspectYii3KernelTest extends TestCase
         );
     }
 
+    public function testAspectContainerDelegatesToTheAttachedContainer(): void
+    {
+        $kernel    = self::bootKernel([GreetingAspect::class]);
+        $container = new Container(ContainerConfig::create()->withDefinitions([
+            LoggerInterface::class => NullLogger::class,
+        ]));
+        $kernel->attachContainer($container);
+
+        $aspectContainer = $kernel->getContainer();
+
+        $this->assertTrue($aspectContainer->has(LoggerInterface::class));
+        $this->assertSame($container->get(LoggerInterface::class), $aspectContainer->get(LoggerInterface::class));
+        // Its own services are not affected: the aspect is still the lazy service of the aspect container
+        $this->assertTrue(new ReflectionClass(GreetingAspect::class)->isUninitializedLazyObject(
+            $aspectContainer->getService(GreetingAspect::class),
+        ));
+    }
+
     public function testServiceThatIsNotAnAspectIsReportedOnFirstUse(): void
     {
         $kernel = self::bootKernel([Journal::class]);
@@ -105,24 +125,29 @@ final class AspectYii3KernelTest extends TestCase
         new ReflectionClass(GreetingAspect::class)->initializeLazyObject($aspect);
     }
 
-    public function testStatelessAspectIsCreatedWithoutContainer(): void
+    public function testStatelessAspectIsResolvedFromTheAttachedContainer(): void
     {
-        $kernel = self::bootKernel([ConfiguredServiceAspect::class]);
+        // PHP can not make it lazy: the factory runs when the aspect is retrieved, with the definition of the container
+        $kernel    = self::bootKernel([ArgumentAspect::class]);
+        $container = new Container(ContainerConfig::create()->withDefinitions([
+            ArgumentAspect::class => ['__construct()' => ['label' => 'from the container']],
+        ]));
+        $kernel->attachContainer($container);
 
-        $this->assertInstanceOf(
-            ConfiguredServiceAspect::class,
-            $kernel->getContainer()->getService(ConfiguredServiceAspect::class),
-        );
+        $aspect = $kernel->getContainer()->getService(ArgumentAspect::class);
+
+        $this->assertSame($container->get(ArgumentAspect::class), $aspect);
+        $this->assertSame(['from the container'], ArgumentAspect::$labels);
     }
 
-    public function testStatelessAspectWithConstructorArgumentsRequiresContainer(): void
+    public function testStatelessAspectNeededBeforeTheContainerIsAttachedIsReported(): void
     {
-        $kernel = self::bootKernel([ArgumentAspect::class]);
+        $kernel = self::bootKernel([StatelessAspect::class]);
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Aspect "' . ArgumentAspect::class . '" is needed by the weaver before the Yii container is attached');
+        $this->expectExceptionMessage('Aspect "' . StatelessAspect::class . '" is needed by the weaver before the Yii container is attached');
 
-        $kernel->getContainer()->getService(ArgumentAspect::class);
+        $kernel->getContainer()->getService(StatelessAspect::class);
     }
 
     /**
