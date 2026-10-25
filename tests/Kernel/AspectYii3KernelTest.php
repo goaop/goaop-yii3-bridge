@@ -140,12 +140,13 @@ final class AspectYii3KernelTest extends TestCase
         $this->assertSame(['from the container'], ArgumentAspect::$labels);
     }
 
-    public function testStatelessAspectNeededBeforeTheContainerIsAttachedIsReported(): void
+    public function testStatelessAspectRequestedBeforeTheContainerIsAttachedIsReported(): void
     {
+        // The weaver never asks for it: only an advice called before the container exists does
         $kernel = self::bootKernel([StatelessAspect::class]);
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('Aspect "' . StatelessAspect::class . '" is needed by the weaver before the Yii container is attached');
+        $this->expectExceptionMessage('is requested before the Yii container is attached to the aspect kernel');
 
         $kernel->getContainer()->getService(StatelessAspect::class);
     }

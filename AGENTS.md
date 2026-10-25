@@ -56,10 +56,10 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   would weave classes loaded in between without advices.
 - Never autoload aspect classes at registration (production keeps them unloaded); `AspectList` checks names
   syntactically, the debug-only `assertAspects()` runs from the bootstrap callback.
-- Native lazy proxies: an advice runs with `$this` bound to the proxy, the state is the Yii instance's. Classes without
-  instance properties cannot be lazy; their factory runs while weaving. An aspect is always the Yii instance: when
-  one is needed before the container is attached, the factory throws. Never create it directly (`new`): its container
-  definition would be ignored, and the timing of the weaving (i.e. debug mode) would decide how it is created.
+- Native lazy proxies: an advice runs with `$this` bound to the proxy, the state is the Yii instance's. The weaver
+  never creates an aspect (goaop/framework#776), also not one without instance properties, which can not be lazy.
+  An aspect is always the Yii instance: when an advice runs before the container is attached, the factory throws.
+  Never create it directly (`new`): its container definition would be ignored.
 - yiisoft/di exposes no tagged ids without instantiating the services (`get('tag@…')` creates them all), so
   `TaggedAspects` reads the tag declarations from the config: the `tags` meta key of the common `di` group and the
   common `di-tags` tag map, in the container's order (tag map first). Only common groups: web and console share the
