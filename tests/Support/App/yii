@@ -3,6 +3,7 @@
 
 declare(strict_types=1);
 
+use Go\Yii3\GoAopBridge\AopBootstrap;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 
 /*
@@ -12,8 +13,9 @@ use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 
 require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
 
+$runner = TestApplication::runner();
 if (getenv('GOAOP_TEST_ENTRY_LINE') !== '0') {
-    TestApplication::initKernel();
+    AopBootstrap::init($runner->getConfig(), rootPath: TestApplication::rootPath());
 }
 
-TestApplication::runner()->run();
+$runner->run();

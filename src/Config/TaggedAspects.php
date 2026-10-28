@@ -27,10 +27,13 @@ use Yiisoft\Config\ConfigInterface;
  *
  * Only these common groups are read: web and console processes share the woven cache, so they must weave the same
  * aspects. Tags of web or console specific groups and of service providers are not seen.
+ *
+ * Opt-in (the "aspectTag" parameter is null by default): the groups are PHP, evaluated before the aspect kernel
+ * starts, so every class their definitions reference (a class constant, an enum case) is loaded too early to be
+ * woven. The "aspects" parameter has no such limitation.
  */
 final readonly class TaggedAspects
 {
-    public const string DEFAULT_TAG = 'goaop.aspect';
 
     /**
      * Group of the container definitions, the "tags" meta key of every definition is read
@@ -43,16 +46,16 @@ final readonly class TaggedAspects
     public const string TAGS_GROUP = 'di-tags';
 
     /**
-     * @param string|null $tag Tag of the aspect services, null disables the collection
+     * @param string|null $tag Tag of the aspect services, e.g. "goaop.aspect"; null disables the collection
      */
-    public function __construct(private ?string $tag = self::DEFAULT_TAG) {}
+    public function __construct(private ?string $tag) {}
 
     /**
      * @param array<mixed> $params Value of $params['goaop/goaop-yii3-bridge']
      */
     public static function fromParams(array $params): self
     {
-        $tag = array_key_exists('aspectTag', $params) ? $params['aspectTag'] : self::DEFAULT_TAG;
+        $tag = $params['aspectTag'] ?? null;
         if ($tag !== null && (!is_string($tag) || $tag === '')) {
             throw new InvalidArgumentException(sprintf(
                 'The "%s" parameter "aspectTag" must be a non-empty tag name or null, %s given.',

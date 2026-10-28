@@ -37,10 +37,11 @@ return [
         'aspects' => [],
 
         /*
-         * Container tag of aspect services: every definition of the common "di" config group tagged with it
-         * ('tags' => ['goaop.aspect']), and every service listed under it in a common "di-tags" group, is
-         * registered as an aspect too, just as lazily. Null disables the lookup.
+         * Opt-in container tag of aspect services, e.g. 'goaop.aspect': every definition of the common "di" config
+         * group tagged with it, and every service listed under it in a common "di-tags" group, is registered as an
+         * aspect too, just as lazily. The entry line then evaluates these groups before the kernel starts, so a class
+         * they reference (a class constant, an enum case) is loaded too early to be woven: prefer "aspects".
          */
-        'aspectTag' => 'goaop.aspect',
+        'aspectTag' => null,
     ],
 ];

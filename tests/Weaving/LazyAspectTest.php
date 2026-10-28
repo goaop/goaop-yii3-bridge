@@ -70,4 +70,13 @@ final class LazyAspectTest extends WeavingTestCase
 
         $this->assertTrue($aspectContainer->has(GreetingAspect::class));
     }
+
+    public function testAspectContainerDelegatesToTheYiiContainer(): void
+    {
+        $container       = $this->startApplication();
+        $aspectContainer = $container->get(AspectContainer::class);
+        $this->assertInstanceOf(AspectContainer::class, $aspectContainer);
+
+        $this->assertSame($container->get(Journal::class), $aspectContainer->get(Journal::class));
+    }
 }

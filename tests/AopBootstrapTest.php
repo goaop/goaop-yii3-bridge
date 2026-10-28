@@ -20,6 +20,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
+use Yiisoft\Config\ConfigInterface;
 
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
@@ -62,11 +63,47 @@ final class AopBootstrapTest extends TestCase
         $this->assertSame(TestApplication::initKernel(), TestApplication::initKernel());
     }
 
-    public function testMissingBridgeParamsAreReported(): void
+    public function testDefinitionsAreReadWithTheParametersOfTheRunner(): void
+    {
+        TestApplication::prepareRuntime();
+
+        // The common "di" config reads a parameter of "params-console": with the config of the console runner, the
+        // entry line evaluates it like the runner does
+        $config = TestApplication::runner()->getConfig();
+        $kernel = AopBootstrap::init($config, TestApplication::rootPath());
+
+        $this->assertContains(ReportAspect::class, $kernel->getAspects()->toArray());
+        $this->assertSame(['configuredPrefix' => 'configured'], $config->get('params-console')['app'] ?? null);
+    }
+
+    public function testMissingConfigGroupIsReported(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('The "params" config group has no "goaop/goaop-yii3-bridge" parameters');
+        $this->expectExceptionMessage('The config has no "goaop-kernel" group, is the package config merged (composer yii-config-rebuild)?');
 
-        AopBootstrap::init(rootPath: TestApplication::rootPath(), configDirectory: 'tests/Fixtures/AppWithoutBridgeParams');
+        TestApplication::initKernel(configDirectory: 'tests/Fixtures/AppWithoutBridgeParams');
+    }
+
+    public function testMissingBridgeParamsAreReported(): void
+    {
+        $config = new readonly class implements ConfigInterface {
+            /**
+             * @return array<mixed>
+             */
+            public function get(string $group): array
+            {
+                return ['goaop/goaop-yii3-bridge' => null, 'yiisoft/aliases' => null];
+            }
+
+            public function has(string $group): bool
+            {
+                return $group === AopBootstrap::CONFIG_GROUP;
+            }
+        };
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The config parameters have no "goaop/goaop-yii3-bridge" section');
+
+        AopBootstrap::init($config, TestApplication::rootPath());
     }
 }

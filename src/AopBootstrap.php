@@ -18,26 +18,36 @@ use Go\Yii3\GoAopBridge\Config\TaggedAspects;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use InvalidArgumentException;
 use Yiisoft\Aliases\Aliases;
-use Yiisoft\Config\Config;
-use Yiisoft\Config\ConfigPaths;
-use Yiisoft\Config\Modifier\RecursiveMerge;
+use Yiisoft\Config\ConfigInterface;
 
 /**
  * Initializes the aspect kernel from the entry script of the application, before the Yii runner starts
  *
- * Call it from `src/bootstrap.php` right after `vendor/autoload.php` is required:
+ * Call it from every entry script (`public/index.php`, `yii`), between the creation of the runner and its run, with
+ * the config of the runner:
  *
  * ```php
- * AopBootstrap::init(rootPath: dirname(__DIR__), environment: Environment::appEnv());
+ * $runner = new HttpApplicationRunner(rootPath: dirname(__DIR__), debug: Environment::appDebug(), ...);
+ * AopBootstrap::init($runner->getConfig(), rootPath: dirname(__DIR__));
+ * $runner->run();
  * ```
  *
- * The options and aspects are read from the merged "params" config group (the bridge section and the
- * "yiisoft/aliases" aliases), the same configuration the runner uses later; tagged aspects from the common "di"
- * and "di-tags" groups ({@see TaggedAspects}). Weaving then covers every class the
- * runner autoloads while it builds the container, which a callback of the "bootstrap" config group can not.
+ * The options and aspects are read from that config, so the entry line sees the parameters of the runner
+ * ({@see self::CONFIG_GROUP}). Weaving then covers every class the runner autoloads while it builds the container,
+ * which a callback of the "bootstrap" config group can not. Only when the tag lookup is enabled ("aspectTag"), the
+ * common "di" and "di-tags" groups are read here too ({@see TaggedAspects}), and the classes they reference are
+ * loaded before weaving starts.
  */
 final class AopBootstrap
 {
+    /**
+     * Config group of the bridge (config/kernel.php) returning the parameters the kernel is started with
+     *
+     * Its file is evaluated with the parameters of the config it is read from: with the config of the runner, these
+     * are the parameters of the runner, e.g. "params-console" for the console runner.
+     */
+    public const string CONFIG_GROUP = 'goaop-kernel';
+
     /**
      * Static facade, never instantiated
      *
@@ -48,35 +58,28 @@ final class AopBootstrap
     /**
      * Initializes the kernel once per process and returns it
      *
-     * The arguments mirror the ones of the Yii runners, pass the same values.
+     * @param ConfigInterface $config   Config of the runner, {@see \Yiisoft\Yii\Runner\ApplicationRunner::getConfig()}
+     * @param string          $rootPath Root path of the application, the default of the "@root" alias
      */
-    public static function init(
-        string $rootPath,
-        ?string $environment = null,
-        string $configDirectory = 'config',
-        string $vendorDirectory = 'vendor',
-        string $mergePlanFile = '.merge-plan.php',
-        string $paramsGroup = 'params',
-    ): AspectYii3Kernel {
+    public static function init(ConfigInterface $config, string $rootPath): AspectYii3Kernel
+    {
         $kernel = AspectYii3Kernel::instance();
         if ($kernel->isInitialized()) {
             return $kernel;
         }
 
-        $config = new Config(
-            new ConfigPaths($rootPath, $configDirectory, $vendorDirectory),
-            $environment,
-            [RecursiveMerge::groups($paramsGroup)],
-            $paramsGroup,
-            $mergePlanFile,
-        );
-        $params = $config->get($paramsGroup);
+        if (!$config->has(self::CONFIG_GROUP)) {
+            throw new InvalidArgumentException(sprintf(
+                'The config has no "%s" group, is the package config merged (composer yii-config-rebuild)?',
+                self::CONFIG_GROUP,
+            ));
+        }
+        $params = $config->get(self::CONFIG_GROUP);
 
         $bridgeParams = $params[KernelOptions::PARAMS_KEY] ?? null;
         if (!is_array($bridgeParams)) {
             throw new InvalidArgumentException(sprintf(
-                'The "%s" config group has no "%s" parameters, is the package config merged (composer yii-config-rebuild)?',
-                $paramsGroup,
+                'The config parameters have no "%s" section, is the package config merged (composer yii-config-rebuild)?',
                 KernelOptions::PARAMS_KEY,
             ));
         }

@@ -39,7 +39,7 @@ abstract class WeavingTestCase extends TestCase
      */
     protected function startApplication(bool $debug = true): ContainerInterface
     {
-        TestApplication::initKernel();
+        TestApplication::initKernel($debug);
 
         return TestApplication::container($debug);
     }

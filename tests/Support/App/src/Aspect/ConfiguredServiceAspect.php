@@ -16,14 +16,19 @@ use Go\Lang\Attribute\Around;
 
 /**
  * Aspect advising the service that has an array definition
+ *
+ * In debug mode the service is woven while the container is built: the aspect needs an instance property to be
+ * lazy, it is resolved from the container later, on the first call of its advice.
  */
 final class ConfiguredServiceAspect implements Aspect
 {
+    public function __construct(private readonly string $marker = 'woven') {}
+
     #[Around('execution(public Go\Yii3\GoAopBridge\Tests\App\Service\ConfiguredService->describe(*))')]
     public function aroundDescribe(MethodInvocation $invocation): string
     {
         $description = $invocation->proceed();
 
-        return 'woven ' . (is_string($description) ? $description : '');
+        return $this->marker . ' ' . (is_string($description) ? $description : '');
     }
 }

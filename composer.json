@@ -84,7 +84,8 @@
             "params": "params.php",
             "di": "di.php",
             "bootstrap": "bootstrap.php",
-            "params-console": "params-console.php"
+            "params-console": "params-console.php",
+            "goaop-kernel": "kernel.php"
         }
     }
 }
