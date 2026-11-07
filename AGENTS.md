@@ -8,7 +8,7 @@ An integration bridge that plugs the [Go! AOP framework](https://github.com/goao
 It starts the aspect kernel before the Yii runner autoloads application classes, registers aspects as lazy services
 resolved from the Yii container, and adds the `aop:*` console commands.
 
-- Target runtime: PHP >= 8.4, Yii3 (yiisoft/config, yiisoft/di, yiisoft/aliases), goaop/framework 4.x
+- Target runtime: PHP >= 8.4, Yii3 (yiisoft/config, yiisoft/di, yiisoft/aliases), goaop/framework ^4.0
   (attribute-based aspects only).
 - Package type: `library` with yiisoft/config plugin groups (`extra.config-plugin` in `composer.json`).
 - Namespace: `Go\Yii3\GoAopBridge\` (`src/`), tests `Go\Yii3\GoAopBridge\Tests\` (`tests/`), fixture application
@@ -91,7 +91,7 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 ## Development commands
 
 ```bash
-composer install            # needs minimum-stability: dev deps (goaop/framework 4.x-dev)
+composer install            # stable dependencies only (goaop/framework ^4.0)
 composer validate --strict
 composer test               # phpunit
 composer analyse            # phpstan, level max (src, config, tests, benchmarks)
@@ -120,8 +120,10 @@ composer benchmark          # boot-time benchmarks, see benchmarks/README.md (--
   (`--ignore-platform-req=php+` for 8.6).
 - Do not add a `containerClass` option with `Go\Core\GoAspectContainer` (removed upstream) and do not call
   `registerAspect()` (removed in framework 4.x: aspects are `add()`/`addLazyService()` services).
-- The upstream 4.x line is unreleased: composer requires `minimum-stability: dev` + `prefer-stable: true`. Do not
-  "fix" that to stable until goaop/framework 4.0 is tagged.
+- The bridge requires the stable goaop/framework ^4.0 and no `minimum-stability`. When the bridge needs an unreleased
+  framework change, wait for the framework release instead of requiring a dev version. A new framework option, feature
+  flag or command is exposed as a parameter (typed and validated in `KernelOptions`) or a command of the `aop`
+  namespace; a command that builds the cache also goes into `BuildProcess::COMMAND_CLASSES`.
 
 ## Remote sessions (Claude Code on the web)
 

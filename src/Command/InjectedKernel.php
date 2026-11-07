@@ -20,8 +20,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Adapts a framework command extending {@see \Go\Console\Command\BaseAspectCommand} to the Yii container
  *
- * The framework commands load the kernel by executing a "loader" file given as an argument. In a Yii3 application
- * the kernel is a container service, so it is injected instead and the argument is dropped.
+ * The framework commands take the kernel of the process, or execute a "loader" file given as an optional argument to
+ * boot one. In a Yii3 application the entry line boots the kernel and the container provides it, so it is injected
+ * and the argument, which would execute a file of the application once more, is dropped.
  *
  * @internal
  */

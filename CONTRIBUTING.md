@@ -73,9 +73,13 @@ docs/readme-deployment
   process-global singleton, it wraps the composer autoloader and only honours the options of its first initialization.
 - Fixture classes of the application must not be autoloaded before the kernel is initialized: reference them with
   `::class` only (which does not autoload) until the test started the application.
-- `tests/Functional` runs `tests/Support/App/yii` in its own PHP process, through the real console runner.
+- `tests/Functional` runs `tests/Support/App/yii` in its own PHP process, through the real console runner
+  (`GOAOP_TEST_FEATURES=<bitmask>` and `GOAOP_TEST_DEBUG=0` give the process other kernel options, e.g.
+  `Features::PREBUILT_CACHE`).
 - `tests/Performance` checks what a request of the benchmark application loads (deterministic); timings are measured
   by `composer benchmark` (see `benchmarks/README.md`). Run `composer benchmark -- --assert` for changes touching the
   boot path, and update `benchmarks/RESULTS.md` and `benchmarks/budgets.php` when the numbers move.
+- PHP 8.5.11 and 8.5.12 have tracing JIT bugs that break or crash test processes: run the suite with
+  `opcache.jit=disable` there (see "Remote sessions" in [AGENTS.md](AGENTS.md)).
 - Run the suite on every supported PHP version you have, e.g. `php8.4 vendor/bin/phpunit` — with a `vendor/`
   installed by that PHP version.
