@@ -29,7 +29,7 @@
     ],
     "require": {
         "php": "^8.4",
-        "goaop/framework": "^4.0@dev",
+        "goaop/framework": "^4.0",
         "psr/container": "^2.0",
         "yiisoft/aliases": "^3.0",
         "yiisoft/config": "^1.6"
@@ -74,8 +74,6 @@
             "yiisoft/config": false
         }
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "extra": {
         "config-plugin-options": {
             "source-directory": "config"
