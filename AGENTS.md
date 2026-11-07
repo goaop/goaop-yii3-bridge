@@ -169,17 +169,19 @@ COMPOSER_ALLOW_SUPERUSER=1 composer install --prefer-source --no-interaction
 `composer test` and `composer analyse` refuse to run as root with plugins disabled: run `vendor/bin/phpunit` and
 `vendor/bin/phpstan analyse` directly, or prefix them with `COMPOSER_ALLOW_SUPERUSER=1`.
 
-### PHP 8.5.11 tracing JIT
+### PHP 8.5.11 and 8.5.12 tracing JIT
 
-PHP 8.5.11 has an internal bug in the tracing JIT: once the JIT is warm, the pointcut parser of the framework rejects
-valid pointcuts (`Unexpected token \`, `Unexpected ( at line 1`, ...). Not a bridge or framework bug. Session images
-may enable opcache and `opcache.jit=tracing` for the CLI; disable the JIT for the test run (the functional tests
-forward `PHP_INI_SCAN_DIR` to the `yii` processes they start):
+The tracing JIT of PHP 8.5.11 and 8.5.12 has internal bugs. Not a bridge or framework bug. On 8.5.11, once the JIT is
+warm, the pointcut parser of the framework rejects valid pointcuts (`Unexpected token \`, `Unexpected ( at line 1`,
+...); on 8.5.12, PHPUnit child processes of weaving tests crash with a segmentation fault ("Test was run in child
+process and ended unexpectedly", e.g. `TaggedAspectTest`, `EarlyInitializationTest`). Session images may enable
+opcache and `opcache.jit=tracing` for the CLI; disable the JIT for the test run (the functional tests forward
+`PHP_INI_SCAN_DIR` to the `yii` processes they start). CI disables it with the `ini-values` of setup-php.
 
 ```bash
 mkdir -p /tmp/php-nojit && echo 'opcache.jit=disable' > /tmp/php-nojit/zz-nojit.ini
 PHP_INI_SCAN_DIR=":/tmp/php-nojit" vendor/bin/phpunit
 ```
 
-Once `php -v` reports 8.5.12 or higher, check that the tests pass with the tracing JIT on and remove this item. The
-benchmarks set their own ini (JIT off unless `--jit` is given).
+Once `php -v` reports 8.5.13 or higher, check that the tests pass with the tracing JIT on and remove this item (and
+the CI setting). The benchmarks set their own ini (JIT off unless `--jit` is given).
