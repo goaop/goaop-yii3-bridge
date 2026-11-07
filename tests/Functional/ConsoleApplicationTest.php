@@ -53,6 +53,7 @@ final class ConsoleApplicationTest extends TestCase
         foreach (['aop:warmup', 'aop:opcache', 'aop:debug:aspect', 'aop:debug:advisor', 'aop:debug:weaving'] as $command) {
             $this->assertStringContainsString($command, $output);
         }
+        $this->assertStringNotContainsString('aop:warmup-worker', $output);
     }
 
     public function testWarmupPreparesTheCacheForProduction(): void
@@ -63,6 +64,42 @@ final class ConsoleApplicationTest extends TestCase
         $this->assertStringContainsString('Total processed', $output);
         $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingService.php');
         $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingServiceOriginalTrait.php');
+    }
+
+    public function testWarmupWeavesInWorkerProcessesOfTheEntryScript(): void
+    {
+        [$exitCode, $output] = $this->yii(['aop:warmup', '--workers=2']);
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertStringContainsString('Weaving in 2 parallel worker processes.', $output);
+        $this->assertStringContainsString('0 errors', $output);
+        $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingService.php');
+        $this->assertFileExists($this->runtime . '/aop/src/Service/ReportRepository.php');
+
+        [$exitCode, $output] = $this->yii(['app:greet', 'parallel']);
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertSame('PARALLEL!', trim($output));
+    }
+
+    public function testWarmupWorkersBuildAnotherCacheDirectory(): void
+    {
+        [$exitCode, $output] = $this->yii(['aop:warmup', '--workers=2', '--cached-files=2', '--cache-dir=' . $this->runtime . '/next']);
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertStringContainsString('with 2 workers', $output);
+        $this->assertFileExists($this->runtime . '/next/src/Service/GreetingService.php');
+        $this->assertFileExists($this->runtime . '/next/src/Service/ReportRepository.php');
+        $this->assertFileDoesNotExist($this->runtime . '/aop/src/Service/ReportRepository.php');
+    }
+
+    public function testWarmupOfTheBootstrapFallbackWeavesInItsOwnProcess(): void
+    {
+        [$exitCode, $output] = $this->yii(['aop:warmup', '--workers=2'], entryLine: false);
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertStringContainsString('weaving in this process', $output);
+        $this->assertStringNotContainsString('parallel worker processes', $output);
+        $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingService.php');
     }
 
     public function testOpcacheCommandNeedsTheFileCacheSettings(): void
@@ -113,6 +150,7 @@ final class ConsoleApplicationTest extends TestCase
     {
         yield 'warm-up' => [['aop:warmup'], true];
         yield 'abbreviated warm-up' => [['--ansi', 'aop:warm'], true];
+        yield 'warm-up in workers' => [['aop:warmup', '--workers=2'], true];
         yield 'warm-up started by the bootstrap callback' => [['aop:warmup'], false];
         yield 'debug weaving' => [['aop:debug:weaving'], true];
     }

@@ -17,6 +17,7 @@ use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
 use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
 use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
+use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
@@ -70,6 +71,7 @@ final class PackageConfigTest extends TestCase
         $this->assertInstanceOf(AspectYii3Kernel::class, $kernel);
         $this->assertTrue(AspectYii3Kernel::isInitialized());
         $this->assertTrue($kernel->isContainerAttached());
+        $this->assertNull($kernel->getEntryScript());
         $this->assertSame($kernel, $container->get(AspectKernel::class));
         $this->assertSame($kernel->getContainer(), $container->get(AspectContainer::class));
         $this->assertTrue($kernel->getContainer()->has(GreetingAspect::class));
@@ -188,11 +190,12 @@ final class PackageConfigTest extends TestCase
         $this->assertIsArray($params['yiisoft/yii-console']);
 
         $this->assertSame([
-            'aop:warmup'        => WarmupCommand::class,
-            'aop:opcache'       => OpcacheWarmupCommand::class,
-            'aop:debug:aspect'  => DebugAspectCommand::class,
-            'aop:debug:advisor' => DebugAdvisorCommand::class,
-            'aop:debug:weaving' => DebugWeavingCommand::class,
+            'aop:warmup'         => WarmupCommand::class,
+            '|aop:warmup-worker' => WarmupWorkerCommand::class,
+            'aop:opcache'        => OpcacheWarmupCommand::class,
+            'aop:debug:aspect'   => DebugAspectCommand::class,
+            'aop:debug:advisor'  => DebugAdvisorCommand::class,
+            'aop:debug:weaving'  => DebugWeavingCommand::class,
         ], $params['yiisoft/yii-console']['commands']);
     }
 

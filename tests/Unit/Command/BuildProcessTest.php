@@ -15,6 +15,7 @@ use Go\Yii3\GoAopBridge\Command\BuildProcess;
 use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
 use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
+use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;
 use Go\Yii3\GoAopBridge\Tests\App\Command\GreetCommand;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -28,7 +29,8 @@ final class BuildProcessTest extends TestCase
         'aop:warmup|deploy:aop' => WarmupCommand::class,
         'aop:debug:aspect' => DebugAspectCommand::class,
         'aop:debug:weaving' => '\\' . DebugWeavingCommand::class,
-        '|aop:hidden-warmup' => WarmupCommand::class,
+        '|aop:warmup-worker' => WarmupWorkerCommand::class,
+        '|aop:hidden-greet' => GreetCommand::class,
         'app:greet' => GreetCommand::class,
         'app:warmup' => GreetCommand::class,
     ];
@@ -41,7 +43,9 @@ final class BuildProcessTest extends TestCase
         yield 'warm-up' => [['yii', 'aop:warmup'], true];
         yield 'warm-up with options' => [['yii', 'aop:warmup', '--workers=4', '--preload'], true];
         yield 'alias' => [['yii', 'deploy:aop'], true];
-        yield 'hidden name' => [['yii', 'aop:hidden-warmup'], true];
+        yield 'hidden worker' => [['yii', 'aop:warmup-worker', '--cached-files=10'], true];
+        yield 'abbreviation of a hidden command' => [['yii', 'aop:warmup-w'], true];
+        yield 'abbreviation of a hidden application command' => [['yii', 'aop:h'], false];
         yield 'debug weaving' => [['yii', 'aop:debug:weaving', '-v'], true];
         yield 'global options first' => [['yii', '-v', '--ansi', '--config=web', 'aop:warmup'], true];
         yield 'option value as next argument' => [['yii', '--config', 'aop:debug:aspect', 'aop:warmup'], true];

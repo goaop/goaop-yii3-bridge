@@ -91,6 +91,8 @@ final class AopBootstrap
         $kernel->boot(
             KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? [])),
             AspectList::fromParams($bridgeParams)->merge(TaggedAspects::fromParams($bridgeParams)->collect($config)),
+            // The script calling the entry line, which the workers of "aop:warmup" run again
+            debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0]['file'] ?? null,
         );
 
         return $kernel;

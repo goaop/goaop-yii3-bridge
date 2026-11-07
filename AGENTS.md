@@ -35,8 +35,12 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — the opt-in tag lookup (`aspectTag`, e.g. `goaop.aspect`) in the container config.
-- `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
-  `BuildProcess` resolves the command of the console process from `$_SERVER['argv']` and the yii-console command map
+- `src/Command/*` — subclasses of the framework commands (`aop:warmup`, `aop:opcache`, `aop:debug:*`), named in the
+  `aop` namespace; `InjectedKernel` injects the kernel and drops the `loader` argument. `aop:warmup --workers=N`
+  starts N workers running the entry script that called `AopBootstrap::init()` (`AspectYii3Kernel::getEntryScript()`)
+  with the hidden `aop:warmup-worker` (`WarmupWorkerCommand`), only when that script is the one running the process;
+  otherwise it weaves in-process with a warning. The worker hands its own (included) class file to
+  `WarmupWorker::main()` as the loader, so nothing else is executed. `BuildProcess` resolves the command of the console process from `$_SERVER['argv']` and the yii-console command map
   (exact name or alias, else an unambiguous abbreviation, as Symfony's `Application::find()`), by class.
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
@@ -75,6 +79,11 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   classes before the console runs a command, so the entry line (and the bootstrap fallback, for the callbacks after
   it) marks the process before the kernel boots, when the command is a cache-building one (`BuildProcess`). A new
   command that builds the cache belongs in `BuildProcess::COMMAND_CLASSES`.
+- Warm-up workers and the coordinator must boot with the same configuration and `appDir`: the records the workers
+  report are keyed relative to it. That is why a worker runs the entry script (same runner, environment variables
+  inherited) and never a bootstrap file of the bridge.
+- `config/params-console.php` (and every params file) references classes with `::class` only: a class constant
+  (`WarmupWorkerCommand::NAME`) would load the class while the entry line reads the config.
 - `cacheFileMode` must reach the kernel as an `int`; strings of octal digits are converted by `KernelOptions`.
 - Aspects use PHP 8 attributes (`Go\Lang\Attribute\Before`, `After`, `Around`, `AfterThrowing`, `Pointcut`); advice
   methods must be `public`. No Doctrine annotations.

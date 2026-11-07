@@ -35,7 +35,7 @@ final class BuildProcess
     /**
      * Commands that build the AOP cache
      */
-    public const array COMMAND_CLASSES = [WarmupCommand::class, DebugWeavingCommand::class];
+    public const array COMMAND_CLASSES = [WarmupCommand::class, WarmupWorkerCommand::class, DebugWeavingCommand::class];
 
     /**
      * Options of the console application that take their value from the next argument (yiisoft/yii-console adds
@@ -82,15 +82,16 @@ final class BuildProcess
             return false;
         }
 
-        // Every name and alias => [command class, primary name], as the console lists them
+        // Every name and alias => [command class, primary name, hidden], as yiisoft/yii-console registers them
         $commands = [];
         foreach ($commandMap as $names => $class) {
             if (!is_string($names) || !is_string($class)) {
                 continue;
             }
+            $hidden  = str_starts_with($names, '|');
             $aliases = array_values(array_filter(explode('|', $names), static fn(string $alias): bool => $alias !== ''));
             foreach ($aliases as $alias) {
-                $commands[$alias] = [ltrim($class, '\\'), $aliases[0]];
+                $commands[$alias] = [ltrim($class, '\\'), $aliases[0], $hidden];
             }
         }
         $class = isset($commands[$name]) ? $commands[$name][0] : self::abbreviatedCommand($name, $commands);
@@ -127,9 +128,9 @@ final class BuildProcess
     /**
      * Resolves an abbreviated name like Application::find() of the Symfony console: the commands whose name starts
      * with the abbreviation of every segment ("aop:w" for "aop:warmup"), case-sensitively first; one of them must
-     * match it entirely, and they must all be the same command
+     * match it entirely, and they must all be the same command, hidden commands left aside when there are several
      *
-     * @param array<string, array{string, string}> $commands Name or alias => [command class, primary name]
+     * @param array<string, array{string, string, bool}> $commands Name or alias => [command class, primary name, hidden]
      */
     private static function abbreviatedCommand(string $name, array $commands): ?string
     {
@@ -141,18 +142,24 @@ final class BuildProcess
         if (self::matchingCommands('{^' . $expression . '$}i', $matches) === []) {
             return null;
         }
-        $classes = [];
-        foreach ($matches as [$class, $primaryName]) {
+        $classes = $visible = [];
+        foreach ($matches as [$class, $primaryName, $hidden]) {
             $classes[$primaryName] = $class;
+            if (!$hidden) {
+                $visible[$primaryName] = $class;
+            }
+        }
+        if (count($classes) > 1) {
+            $classes = $visible;
         }
 
         return count($classes) === 1 ? reset($classes) : null;
     }
 
     /**
-     * @param array<string, array{string, string}> $commands
+     * @param array<string, array{string, string, bool}> $commands
      *
-     * @return array<string, array{string, string}>
+     * @return array<string, array{string, string, bool}>
      */
     private static function matchingCommands(string $pattern, array $commands): array
     {

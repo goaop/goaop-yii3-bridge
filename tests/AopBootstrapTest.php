@@ -36,6 +36,8 @@ final class AopBootstrapTest extends TestCase
 
         $this->assertTrue(AspectYii3Kernel::isInitialized());
         $this->assertFalse($kernel->isContainerAttached());
+        // The script calling the entry line, which the warm-up workers run again
+        $this->assertSame(dirname(__DIR__) . '/tests/Support/TestApplication.php', $kernel->getEntryScript());
         $options = $kernel->getOptions();
         $this->assertTrue($options['debug']);
         $this->assertSame($appDir, $options['appDir']);

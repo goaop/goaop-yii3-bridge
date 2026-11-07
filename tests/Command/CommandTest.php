@@ -77,6 +77,16 @@ final class CommandTest extends WeavingTestCase
         $this->assertFalse($this->cacheContainsFileFor('GreetingService'));
     }
 
+    public function testWarmupWeavesInThisProcessWhenItDoesNotRunTheEntryScript(): void
+    {
+        $tester = new CommandTester($this->command(WarmupCommand::class));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute(['--workers' => '2'], ['capture_stderr_separately' => true]));
+        $this->assertStringContainsString('weaving in this process', $tester->getErrorOutput());
+        $this->assertStringNotContainsString('workers', $tester->getErrorOutput() . $tester->getDisplay());
+        $this->assertTrue($this->cacheContainsFileFor('GreetingService'));
+    }
+
     public function testWarmupWeavesWithFewerCachedFiles(): void
     {
         $tester = new CommandTester($this->command(WarmupCommand::class));
