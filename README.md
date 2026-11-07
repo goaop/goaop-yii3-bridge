@@ -1,12 +1,12 @@
 # Go! AOP Yii3 bridge
 
-[![CI](https://github.com/goaop/goaop-yii3-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/goaop/goaop-yii3-bridge/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/goaop/goaop-yii3-bridge/branch/master/graph/badge.svg)](https://codecov.io/gh/goaop/goaop-yii3-bridge)
+[![CI](https://img.shields.io/github/actions/workflow/status/goaop/goaop-yii3-bridge/ci.yml?logo=github&logoColor=white)](https://github.com/goaop/goaop-yii3-bridge/actions/workflows/ci.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/goaop/goaop-yii3-bridge/master.svg?logo=codecov&logoColor=white)](https://codecov.io/gh/goaop/goaop-yii3-bridge)
 ![PHPStan Badge](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg?style=flat)
 [![GitHub release](https://img.shields.io/github/release/goaop/goaop-yii3-bridge.svg)](https://github.com/goaop/goaop-yii3-bridge/releases/latest)
 [![Total Downloads](https://img.shields.io/packagist/dt/goaop/goaop-yii3-bridge.svg)](https://packagist.org/packages/goaop/goaop-yii3-bridge)
-[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.4-8892BF.svg)](https://www.php.net/supported-versions.php)
-[![License](https://img.shields.io/packagist/l/goaop/goaop-yii3-bridge.svg)](https://packagist.org/packages/goaop/goaop-yii3-bridge)
+[![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.4-8892BF.svg?logo=php&logoColor=white)](https://www.php.net/supported-versions.php)
+[![License](https://img.shields.io/packagist/l/goaop/goaop-yii3-bridge.svg?style=flat)](https://packagist.org/packages/goaop/goaop-yii3-bridge)
 [![Sponsor](https://img.shields.io/badge/Sponsor-❤️-lightgray?style=flat&logo=github)](https://github.com/sponsors/lisachenko)
 
 Integration bridge for the [Go! AOP framework](https://github.com/goaop/framework) and [Yii3](https://www.yiiframework.com/).
