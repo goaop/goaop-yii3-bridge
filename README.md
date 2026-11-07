@@ -1,7 +1,7 @@
 # Go! AOP Yii3 bridge
 
 [![CI](https://github.com/goaop/goaop-yii3-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/goaop/goaop-yii3-bridge/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/goaop/goaop-yii3-bridge/graph/badge.svg)](https://codecov.io/gh/goaop/goaop-yii3-bridge)
+[![codecov](https://codecov.io/gh/goaop/goaop-yii3-bridge/branch/master/graph/badge.svg)](https://codecov.io/gh/goaop/goaop-yii3-bridge)
 ![PHPStan Badge](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg?style=flat)
 [![GitHub release](https://img.shields.io/github/release/goaop/goaop-yii3-bridge.svg)](https://github.com/goaop/goaop-yii3-bridge/releases/latest)
 [![Total Downloads](https://img.shields.io/packagist/dt/goaop/goaop-yii3-bridge.svg)](https://packagist.org/packages/goaop/goaop-yii3-bridge)
