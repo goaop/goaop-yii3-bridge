@@ -15,11 +15,15 @@ use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
 use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
 use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
+use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;
+use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
+use Go\Aop\Exception\InvalidConfigurationException;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
 use Go\Yii3\GoAopBridge\Tests\Weaving\WeavingTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use ReflectionMethod;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -85,6 +89,33 @@ final class CommandTest extends WeavingTestCase
         $this->assertStringContainsString('weaving in this process', $tester->getErrorOutput());
         $this->assertStringNotContainsString('workers', $tester->getErrorOutput() . $tester->getDisplay());
         $this->assertTrue($this->cacheContainsFileFor('GreetingService'));
+    }
+
+    public function testWorkerCommandLineRunsTheEntryScriptAgain(): void
+    {
+        $command     = $this->command(WarmupCommand::class);
+        $entryScript = AspectYii3Kernel::instance()->getEntryScript();
+        $this->assertIsString($entryScript);
+        // As if this process were started by the entry script, the way the console runs
+        $_SERVER['SCRIPT_FILENAME'] = $entryScript;
+        $commandLine = new ReflectionMethod($command, 'getWorkerCommandLine');
+
+        $this->assertSame(
+            [PHP_BINARY, '-d', 'memory_limit=' . ini_get('memory_limit'), '-d', 'display_errors=stderr', $entryScript, WarmupWorkerCommand::NAME, '--cached-files=7', '--cache-dir=/srv/next'],
+            $commandLine->invoke($command, 7, '/srv/next'),
+        );
+        // No cache directory, no option
+        $withoutCacheDir = $commandLine->invoke($command, 7, null);
+        $this->assertIsArray($withoutCacheDir);
+        $this->assertCount(8, $withoutCacheDir);
+    }
+
+    public function testWorkerRejectsCachedFilesThatAreNoPositiveInteger(): void
+    {
+        $tester = new CommandTester($this->command(WarmupWorkerCommand::class));
+
+        $this->expectException(InvalidConfigurationException::class);
+        $tester->execute(['--cached-files' => '0']);
     }
 
     public function testWarmupWeavesWithFewerCachedFiles(): void
