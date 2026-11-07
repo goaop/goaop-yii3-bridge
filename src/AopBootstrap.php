@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge;
 
+use Go\Yii3\GoAopBridge\Command\BuildProcess;
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Config\TaggedAspects;
@@ -83,12 +84,28 @@ final class AopBootstrap
                 KernelOptions::PARAMS_KEY,
             ));
         }
+        // The console builds the AOP cache: classes the runner loads before the command runs are no misses (#808)
+        if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {
+            BuildProcess::mark($params['yiisoft/yii-console'] ?? null, self::arguments());
+        }
         $kernel->boot(
             KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? [])),
             AspectList::fromParams($bridgeParams)->merge(TaggedAspects::fromParams($bridgeParams)->collect($config)),
         );
 
         return $kernel;
+    }
+
+    /**
+     * Returns the command line of this process
+     *
+     * @return list<string>
+     */
+    private static function arguments(): array
+    {
+        $arguments = $_SERVER['argv'] ?? [];
+
+        return is_array($arguments) ? array_values(array_filter($arguments, is_string(...))) : [];
     }
 
     /**

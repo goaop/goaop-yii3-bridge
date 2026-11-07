@@ -10,7 +10,10 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Tests\Functional;
 
+use Go\Aop\Features;
+use Go\Yii3\GoAopBridge\Tests\App\Service\ConfiguredService;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -62,17 +65,58 @@ final class ConsoleApplicationTest extends TestCase
         $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingServiceOriginalTrait.php');
     }
 
+    public function testPrebuiltCacheMissFailsTheApplication(): void
+    {
+        // The container reflects ConfiguredService (an array definition) while the runner builds it in debug mode
+        [$exitCode, $output] = $this->yii(['app:greet', 'hello'], features: Features::PREBUILT_CACHE);
+
+        $this->assertNotSame(0, $exitCode, $output);
+        $this->assertStringContainsString(
+            sprintf('Class %s (%s) is missing from the prebuilt AOP cache', ConfiguredService::class, TestApplication::rootPath() . '/tests/Support/App/src/Service/ConfiguredService.php'),
+            $output,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{list<string>, bool}>
+     */
+    public static function buildCommands(): iterable
+    {
+        yield 'warm-up' => [['aop:warmup'], true];
+        yield 'abbreviated warm-up' => [['--ansi', 'aop:warm'], true];
+        yield 'warm-up started by the bootstrap callback' => [['aop:warmup'], false];
+        yield 'debug weaving' => [['aop:debug:weaving'], true];
+    }
+
+    /**
+     * The process building a prebuilt cache loads classes the cache misses before the command runs (#808)
+     *
+     * @param list<string> $arguments
+     */
+    #[DataProvider('buildCommands')]
+    public function testBuildCommandBuildsAPrebuiltCacheTheApplicationLoadsBeforeIt(array $arguments, bool $entryLine): void
+    {
+        [$exitCode, $output] = $this->yii($arguments, $entryLine, features: Features::PREBUILT_CACHE);
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertFileExists($this->runtime . '/aop/src/Service/ConfiguredService.php');
+
+        [$exitCode, $output] = $this->yii(['app:greet', 'prebuilt'], $entryLine, features: Features::PREBUILT_CACHE);
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertSame('PREBUILT!', trim($output));
+    }
+
     /**
      * @param list<string> $arguments
      *
      * @return array{int, string}
      */
-    private function yii(array $arguments, bool $entryLine = true): array
+    private function yii(array $arguments, bool $entryLine = true, int $features = 0): array
     {
         $command = [PHP_BINARY, TestApplication::rootPath() . '/tests/Support/App/yii', ...$arguments];
         $env     = [
             'GOAOP_TEST_RUNTIME'    => $this->runtime,
             'GOAOP_TEST_ENTRY_LINE' => $entryLine ? '1' : '0',
+            'GOAOP_TEST_FEATURES'   => (string) $features,
             'PATH'                  => (string) getenv('PATH'),
         ];
         // Lets the ini of the test run reach the process, e.g. the JIT disabled for PHP 8.5.11 (AGENTS.md)

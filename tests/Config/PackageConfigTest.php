@@ -164,13 +164,19 @@ final class PackageConfigTest extends TestCase
     {
         $bridge  = ['debug' => false];
         $aliases = ['aliases' => ['@root' => '/app']];
+        $console = ['commands' => ['aop:warmup' => 'Go\\Yii3\\GoAopBridge\\Command\\WarmupCommand']];
 
         $this->assertSame(
-            ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases],
-            self::requireConfig('kernel.php', ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases, 'app' => []]),
+            ['goaop/goaop-yii3-bridge' => $bridge, 'yiisoft/aliases' => $aliases, 'yiisoft/yii-console' => $console],
+            self::requireConfig('kernel.php', [
+                'goaop/goaop-yii3-bridge' => $bridge,
+                'yiisoft/aliases' => $aliases,
+                'yiisoft/yii-console' => $console,
+                'app' => [],
+            ]),
         );
         $this->assertSame(
-            ['goaop/goaop-yii3-bridge' => null, 'yiisoft/aliases' => null],
+            ['goaop/goaop-yii3-bridge' => null, 'yiisoft/aliases' => null, 'yiisoft/yii-console' => null],
             self::requireConfig('kernel.php', []),
         );
     }

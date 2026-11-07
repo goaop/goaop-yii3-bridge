@@ -21,11 +21,12 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `config/bootstrap.php` — `KernelInitializer::initialize()`: attaches the Yii container to the kernel, initializes the
   kernel itself when the entry line was not used (fallback), checks the aspects in debug mode.
 - `config/params-console.php` — registers the commands with yii-console (autowired, no `di-console` needed).
-- `config/kernel.php` — the `goaop-kernel` group: returns the bridge and alias parameters. Its file is evaluated with
-  the params group of the config it is read from, so the entry line sees the parameters of the runner.
+- `config/kernel.php` — the `goaop-kernel` group: returns the bridge, alias and yii-console parameters. Its file is
+  evaluated with the params group of the config it is read from, so the entry line sees the parameters of the runner.
 - `src/AopBootstrap.php` — the entry line (`AopBootstrap::init($runner->getConfig(), $rootPath)` in every entry script,
-  between the creation of the runner and its run): reads the `goaop-kernel` group of the runner's config, boots the
-  kernel before the runner builds the container.
+  between the creation of the runner and its run): reads the `goaop-kernel` group of the runner's config, marks a
+  console process running a cache-building command as a build process (`Command\BuildProcess`), boots the kernel
+  before the runner builds the container.
 - `src/Kernel/AspectYii3Kernel.php` — `configureAop()` registers every aspect with `addLazyService()`; the factory
   resolves it through `ContainerResolver` (the Yii container, attached later by the bootstrap callback).
   `attachContainer()` also makes the Yii container the PSR-11 delegate of the aspect container
@@ -35,6 +36,8 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — the opt-in tag lookup (`aspectTag`, e.g. `goaop.aspect`) in the container config.
 - `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
+  `BuildProcess` resolves the command of the console process from `$_SERVER['argv']` and the yii-console command map
+  (exact name or alias, else an unambiguous abbreviation, as Symfony's `Application::find()`), by class.
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
 
@@ -67,6 +70,11 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   fallback the `ConfigInterface` the runner registers in the container (the same object).
 - `Go\Core\AspectKernel` is a process-global singleton with a `final protected` constructor. Tests touching the kernel
   run in separate PHPUnit processes, each with its own `@runtime` (`TestApplication::prepareRuntime()`).
+- With `Features::PREBUILT_CACHE` a class the cache misses fails the process (goaop/framework#808), except in a build
+  process marked by `CachePathManager::markBuildProcess()` before the class loads. The runner loads application
+  classes before the console runs a command, so the entry line (and the bootstrap fallback, for the callbacks after
+  it) marks the process before the kernel boots, when the command is a cache-building one (`BuildProcess`). A new
+  command that builds the cache belongs in `BuildProcess::COMMAND_CLASSES`.
 - `cacheFileMode` must reach the kernel as an `int`; strings of octal digits are converted by `KernelOptions`.
 - Aspects use PHP 8 attributes (`Go\Lang\Attribute\Before`, `After`, `Around`, `AfterThrowing`, `Pointcut`); advice
   methods must be `public`. No Doctrine annotations.
