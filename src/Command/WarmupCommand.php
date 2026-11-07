@@ -30,6 +30,17 @@ proxies in its cache directory, so no weaving happens on the first real request.
 
 The command fails when a file cannot be woven, so a deployment never ships an incomplete cache.
 Errors are written to stderr; use <comment>--fail-fast</comment> to stop at the first one.
+
+Each weaving process keeps the last parsed files in memory (the <comment>parsedFilesLimit</comment> parameter of
+the bridge, 100 by default); set <comment>--cached-files</comment> higher to re-parse less, lower to use less memory.
+
+With <comment>--cache-dir</comment> the cache is built in another directory, e.g. to prepare the cache of the next
+release next to the running one: the kernel keeps using its own directory, and a cache built this way is complete
+and location independent.
+
+<comment>--preload</comment> writes the opcache.preload script of the cache, <info>_preload.php</info> in the cache
+directory or the file given as <comment>--preload=FILE</comment>. Point opcache.preload at it (with
+opcache.preload_user) and every woven class is linked once when PHP starts instead of being loaded by each request.
 EOT,
 )]
 final class WarmupCommand extends FrameworkCacheWarmupCommand

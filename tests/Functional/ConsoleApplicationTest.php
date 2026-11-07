@@ -50,7 +50,7 @@ final class ConsoleApplicationTest extends TestCase
         [$exitCode, $output] = $this->yii(['list', 'aop']);
 
         $this->assertSame(0, $exitCode, $output);
-        foreach (['aop:warmup', 'aop:debug:aspect', 'aop:debug:advisor', 'aop:debug:weaving'] as $command) {
+        foreach (['aop:warmup', 'aop:opcache', 'aop:debug:aspect', 'aop:debug:advisor', 'aop:debug:weaving'] as $command) {
             $this->assertStringContainsString($command, $output);
         }
     }
@@ -63,6 +63,35 @@ final class ConsoleApplicationTest extends TestCase
         $this->assertStringContainsString('Total processed', $output);
         $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingService.php');
         $this->assertFileExists($this->runtime . '/aop/src/Service/GreetingServiceOriginalTrait.php');
+    }
+
+    public function testOpcacheCommandNeedsTheFileCacheSettings(): void
+    {
+        [$exitCode, $output] = $this->yii(['aop:opcache']);
+
+        $this->assertSame(1, $exitCode, $output);
+        $this->assertStringContainsString('Can not prime the opcache file cache', $output);
+        $this->assertStringContainsString('-d opcache.file_cache_only=1', $output);
+    }
+
+    public function testOpcacheCommandPrimesTheFileCacheAfterTheWarmup(): void
+    {
+        if (!extension_loaded('Zend OPcache')) {
+            $this->markTestSkipped('The opcache extension is not loaded.');
+        }
+        $fileCache = $this->runtime . '/opcache';
+        mkdir($fileCache);
+        [$exitCode, $output] = $this->yii(['aop:warmup']);
+        $this->assertSame(0, $exitCode, $output);
+
+        [$exitCode, $output] = $this->yii(
+            ['aop:opcache', '--file-cache=' . $fileCache, '--entry=' . TestApplication::rootPath() . '/tests/Support/App/yii'],
+            phpOptions: ['opcache.enable_cli=1', 'opcache.file_cache_only=1', 'opcache.file_cache=' . $fileCache],
+        );
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertMatchesRegularExpression('/Compiled \d+ files\./', $output);
+        $this->assertNotSame([], glob($fileCache . '/*', GLOB_ONLYDIR));
     }
 
     public function testPrebuiltCacheMissFailsTheApplication(): void
@@ -107,12 +136,18 @@ final class ConsoleApplicationTest extends TestCase
 
     /**
      * @param list<string> $arguments
+     * @param list<string> $phpOptions ini settings of the process
      *
      * @return array{int, string}
      */
-    private function yii(array $arguments, bool $entryLine = true, int $features = 0): array
+    private function yii(array $arguments, bool $entryLine = true, int $features = 0, array $phpOptions = []): array
     {
-        $command = [PHP_BINARY, TestApplication::rootPath() . '/tests/Support/App/yii', ...$arguments];
+        $command = [PHP_BINARY];
+        foreach ($phpOptions as $option) {
+            $command[] = '-d';
+            $command[] = $option;
+        }
+        $command = [...$command, TestApplication::rootPath() . '/tests/Support/App/yii', ...$arguments];
         $env     = [
             'GOAOP_TEST_RUNTIME'    => $this->runtime,
             'GOAOP_TEST_ENTRY_LINE' => $entryLine ? '1' : '0',

@@ -13,6 +13,7 @@ namespace Go\Yii3\GoAopBridge\Tests\Command;
 use Go\Yii3\GoAopBridge\Command\DebugAdvisorCommand;
 use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
 use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
+use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
 use Go\Yii3\GoAopBridge\Tests\Weaving\WeavingTestCase;
@@ -38,6 +39,7 @@ final class CommandTest extends WeavingTestCase
         yield 'debug aspect' => [DebugAspectCommand::class, 'aop:debug:aspect'];
         yield 'debug advisor' => [DebugAdvisorCommand::class, 'aop:debug:advisor'];
         yield 'debug weaving' => [DebugWeavingCommand::class, 'aop:debug:weaving'];
+        yield 'opcache' => [OpcacheWarmupCommand::class, 'aop:opcache'];
     }
 
     /**
@@ -61,6 +63,26 @@ final class CommandTest extends WeavingTestCase
         $this->assertStringContainsString('0 errors', $tester->getDisplay());
         $this->assertTrue($this->cacheContainsFileFor('GreetingService'));
         $this->assertTrue($this->cacheContainsFileFor('ReportRepository'));
+    }
+
+    public function testWarmupBuildsAnotherCacheDirectoryWithItsPreloadScript(): void
+    {
+        $cacheDir = $this->runtime . '/next-release';
+        $tester   = new CommandTester($this->command(WarmupCommand::class));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute(['--cache-dir' => $cacheDir, '--preload' => null]));
+        $this->assertFileExists($cacheDir . '/src/Service/GreetingService.php');
+        $this->assertFileExists($cacheDir . '/_preload.php');
+        // The kernel keeps its own directory
+        $this->assertFalse($this->cacheContainsFileFor('GreetingService'));
+    }
+
+    public function testWarmupWeavesWithFewerCachedFiles(): void
+    {
+        $tester = new CommandTester($this->command(WarmupCommand::class));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute(['--cached-files' => '1']));
+        $this->assertTrue($this->cacheContainsFileFor('GreetingService'));
     }
 
     public function testDebugAspectShowsOneAspect(): void
