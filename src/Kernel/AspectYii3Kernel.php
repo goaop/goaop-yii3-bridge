@@ -37,6 +37,8 @@ final class AspectYii3Kernel extends AspectKernel
 
     private ?ContainerResolver $resolver = null;
 
+    private ?string $entryScript = null;
+
     /**
      * Returns the kernel of the application
      *
@@ -60,14 +62,26 @@ final class AspectYii3Kernel extends AspectKernel
      * Initializes the kernel and registers the aspects as lazily resolved services
      *
      * Only the first call initializes the kernel, as for {@see AspectKernel::init()}.
+     *
+     * @param string|null $entryScript Script whose entry line initializes the kernel, null for the bootstrap fallback
      */
-    public function boot(KernelOptions $options, AspectList $aspects): void
+    public function boot(KernelOptions $options, AspectList $aspects, ?string $entryScript = null): void
     {
         if ($this->wasInitialized) {
             return;
         }
-        $this->aspects = $aspects;
+        $this->aspects     = $aspects;
+        $this->entryScript = $entryScript;
         $this->init($options->toArray());
+    }
+
+    /**
+     * Returns the entry script that initialized the kernel ({@see \Go\Yii3\GoAopBridge\AopBootstrap::init()}), null
+     * when the bootstrap fallback did
+     */
+    public function getEntryScript(): ?string
+    {
+        return $this->entryScript;
     }
 
     /**
@@ -76,11 +90,6 @@ final class AspectYii3Kernel extends AspectKernel
     public function getAspects(): AspectList
     {
         return $this->aspects ?? AspectList::fromClassNames([]);
-    }
-
-    public function isInitialized(): bool
-    {
-        return $this->wasInitialized;
     }
 
     /**

@@ -43,7 +43,7 @@ expression, and the engine weaves it in. Your services stay plain business logic
 
 - PHP >= 8.4
 - Yii3 packages: yiisoft/config, yiisoft/di, yiisoft/aliases (as in the [application template](https://github.com/yiisoft/app))
-- goaop/framework 4.x (attribute-based aspects)
+- goaop/framework ^4.0 (attribute-based aspects)
 
 ## Installation
 
@@ -53,15 +53,6 @@ composer require goaop/goaop-yii3-bridge
 
 The yiisoft/config plugin picks up the configuration of the bridge (run `composer yii-config-rebuild` if you
 installed it with the plugin disabled).
-
-> [!NOTE]
-> Until goaop/framework 4.0 is tagged, the bridge depends on the unreleased `4.0-dev` line, so the `composer.json`
-> of your application needs:
->
-> ```json
-> "minimum-stability": "dev",
-> "prefer-stable": true
-> ```
 
 ### Start the kernel from the entry script
 
@@ -241,9 +232,10 @@ environment in `config/environments/<env>/params.php`:
 | `appDir`        | `'@root'`          | Application root, only files below it are woven. |
 | `cacheDir`      | `'@runtime/aop'`   | Woven sources, proxies and advisor caches. |
 | `cacheFileMode` | `null`             | Permissions of cache files: an integer (`0770`) or octal digits (`'770'`, e.g. from an environment variable). `null` means `0770` minus the umask. |
-| `features`      | `0`                | Bitmask of `Go\Aop\Features` flags, e.g. `Features::PREBUILT_CACHE`. |
+| `features`      | `0`                | Bitmask of `Go\Aop\Features` flags: `PREBUILT_CACHE` (see [Deployment](#deployment)), `PARTIAL_REFLECTION` (weave classes whose parent class, interface or trait Composer can't locate; members inherited from a missing ancestor aren't intercepted), `INTERCEPT_INCLUDES` (weave files loaded with `include`/`require`). |
 | `includePaths`  | `['@src']`         | Only these directories are woven. Keep it narrow. |
 | `excludePaths`  | `[]`               | Never woven. The cache directory and the framework are always excluded. |
+| `parsedFilesLimit` | `null`          | Number of parsed files kept in memory while weaving, also the default of `aop:warmup --cached-files`: more is faster on a large code base, fewer uses less memory. A positive integer or digits; `null` means the kernel default (100). |
 | `aspects`       | `[]`               | Aspect classes, resolved lazily from the Yii container. |
 | `aspectTag`     | `null`             | Opt-in container tag registering aspects (e.g. `'goaop.aspect'`), read from the common `di` and `di-tags` config groups before the kernel starts. See [Tagging aspects](#tagging-aspects-opt-in). |
 
@@ -259,35 +251,62 @@ With [yiisoft/yii-console](https://github.com/yiisoft/yii-console) installed, th
 
 | Command                 | Purpose |
 |-------------------------|---------|
-| `./yii aop:warmup`      | Weaves every class below the include paths into the cache. Fails if a file can't be woven; `--fail-fast` stops at the first error. |
+| `./yii aop:warmup`      | Weaves every class below the include paths into the cache. Fails if a file can't be woven; `--fail-fast` stops at the first error. `--workers=N` weaves in N parallel processes, `--cache-dir=DIR` builds the cache in another directory, `--preload[=FILE]` writes an opcache.preload script, `--cached-files=N` overrides `parsedFilesLimit`. |
+| `./yii aop:opcache`     | Primes the opcache file cache (`opcache.file_cache`) with the AOP cache and the application, after `aop:warmup`. |
 | `./yii aop:debug:aspect`| Lists the aspects with their pointcuts and advisors (`--aspect=App\\Aspect\\LoggingAspect` for one). |
 | `./yii aop:debug:advisor`| Lists the advisors, or the classes and members one advisor matches (`--advisor=...`). |
 | `./yii aop:debug:weaving`| Weaves twice and reports proxies that differ, which reveals circular dependencies between aspects and woven classes. |
 
-They are the framework's own commands, with the kernel injected by the container instead of a `loader` argument.
+They are the framework's own commands (`cache:warmup:aop`, `cache:warmup:opcache`, `debug:*`), registered under names
+of the `aop` namespace. They run on the kernel the entry line initialized: leave out their optional `loader` argument.
+
+The workers of `aop:warmup --workers=N` run the entry script again (`./yii`, with the hidden `aop:warmup-worker`
+command), so they boot the application with the same environment, configuration and aspects. That needs the entry
+line: when the kernel was started by the `bootstrap` fallback, the command weaves in its own process and says so.
 
 ## Deployment
 
 Weaving happens on the first load of each class. In production, turn `debug` off and build the cache at deploy time:
 
 ```bash
-./yii aop:warmup
+./yii aop:warmup --workers=4
 ```
 
+`--cache-dir=DIR` builds the cache in another directory while the kernel keeps using its own, e.g. to build a fresh
+cache and swap it in atomically: the cache files are location independent, so the directory can be moved into place.
+
 On read-only file systems add `Features::PREBUILT_CACHE` to `features`. The engine then trusts the cache completely
-and never writes to it, so rebuild it on every deploy.
+and never writes to it, so rebuild it on every deploy. A request never weaves: a class below the include paths that the
+cache doesn't know fails with a `Go\Aop\Exception\WeavingException`. The process of `aop:warmup` itself (and of its
+workers, and `aop:debug:weaving`) is exempted: the entry line recognizes the command, also abbreviated or registered
+under another name, before it starts the kernel, so the classes the application loads before the command runs are
+loaded from their sources there, and the warm-up weaves them into the cache.
+
+With opcache, two more steps save the compilation of the woven classes in every new PHP process:
+
+- `./yii aop:warmup --preload` writes `_preload.php` to the cache directory (or `--preload=FILE`). Point
+  `opcache.preload` at it (with `opcache.preload_user`): every woven class is linked once when PHP starts.
+- `./yii aop:opcache` compiles the AOP cache, Composer's class map and the entry points into the opcache file cache.
+  It runs in the final image, with the PHP binary and the paths that serve the requests, and in a process started with
+  the file cache settings, which the command prints when they are missing:
+
+  ```bash
+  mkdir -p /var/cache/opcache && php -d opcache.enable_cli=1 -d opcache.file_cache_only=1 \
+      -d opcache.file_cache=/var/cache/opcache \
+      ./yii aop:opcache --file-cache=/var/cache/opcache --entry=public/index.php --entry=yii
+  ```
 
 ## Performance
 
 Measured with the [benchmarks](benchmarks/README.md) (`composer benchmark`), on a small synthetic application whose
-baseline boots in about 1.5 ms with opcache:
+baseline boots in about 1 ms with opcache:
 
-- In production, with opcache and a warm AOP cache, the bridge adds **about 0.3–0.5 ms per request without aspects**:
+- In production, with opcache and a warm AOP cache, the bridge adds **about 0.3 ms per request without aspects**:
   the entry line reads the params and starts the kernel. No aspect class is loaded at boot, and
   the weaver and the parsers are never loaded once the cache is warm.
-- Registering aspects costs a few µs per request at most; an aspect is resolved from the container (about 15 µs)
+- Registering aspects costs a few µs per request at most; an aspect is resolved from the container (about 10 µs)
   only when one of its advices runs for the first time.
-- Debug mode recompiles woven classes on every request (about 70 µs each), and the first request after a deployment
+- Debug mode recompiles woven classes on every request (about 35 µs each), and the first request after a deployment
   weaves every class it loads: keep `debug` off in production and run `./yii aop:warmup` at deployment.
 
 The full results, per mode and phase, are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
@@ -300,7 +319,11 @@ The full results, per mode and phase, are in [benchmarks/RESULTS.md](benchmarks/
 - Classes the configuration loads while the entry line reads it (the parameters, and with the opt-in tag lookup the
   `di`/`di-tags` groups) can't be woven either.
 - Aspects need no weaving themselves: exclude their directory (e.g. `'excludePaths' => ['@src/Aspect']`). An aspect
-  that depends on a class it advises creates a circular dependency, which `aop:debug:weaving` reports.
+  that depends on a class it advises creates a circular dependency, which `aop:debug:weaving` reports. When creating
+  the aspect runs one of its own advices (it calls an advised method of a dependency while it is built), the advice
+  fails with a `Go\Aop\Exception\AspectCircularReferenceException` naming the path from the aspect to the advice:
+  inject that dependency lazily, e.g. as a closure or through `Psr\Container\ContainerInterface`, or narrow the
+  pointcut.
 - The aspect kernel is process-global. Long-running workers (RoadRunner, Swoole, FrankenPHP) initialize it once per
   worker, and every request reuses the woven classes and the aspect instances. Aspects holding per-request state need
   to be reset like any other shared service.

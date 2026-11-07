@@ -8,10 +8,11 @@ use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Config\TaggedAspects;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
+use Go\Yii3\GoAopBridge\KernelInitializer;
 use Yiisoft\Aliases\Aliases;
 use Yiisoft\Config\ConfigInterface;
 
-/** @var array{'goaop/goaop-yii3-bridge': array<mixed>} $params */
+/** @var array{'goaop/goaop-yii3-bridge': array<mixed>, 'yiisoft/yii-console'?: mixed} $params */
 
 return [
     KernelOptions::class => static fn(Aliases $aliases): KernelOptions => KernelOptions::fromParams(
@@ -29,4 +30,8 @@ return [
     AspectYii3Kernel::class => static fn(): AspectYii3Kernel => AspectYii3Kernel::instance(),
     AspectKernel::class => static fn(AspectYii3Kernel $kernel): AspectKernel => $kernel,
     AspectContainer::class => static fn(AspectKernel $kernel): AspectContainer => $kernel->getContainer(),
+    // The console commands of the runner tell whether the process builds the AOP cache (#808)
+    KernelInitializer::class => static fn(): KernelInitializer => new KernelInitializer(
+        $params['yiisoft/yii-console'] ?? null,
+    ),
 ];

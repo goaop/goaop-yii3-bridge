@@ -39,7 +39,8 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-          ini-values: memory_limit=-1
+          # The tracing JIT of PHP 8.5.11/8.5.12 crashes weaving test processes (a bug in the PHP core), see AGENTS.md
+          ini-values: memory_limit=-1, opcache.jit=disable
           tools: composer:v2
 
       - uses: actions/cache@v6
@@ -68,7 +69,7 @@ jobs:
         with:
           php-version: '8.4'
           coverage: pcov
-          ini-values: memory_limit=-1
+          ini-values: memory_limit=-1, opcache.jit=disable
           tools: composer:v2
 
       - uses: actions/cache@v6

@@ -6,32 +6,39 @@ Re-run it after a change of the bridge or of its dependencies, and update this f
 
 ## Summary
 
-- **Production, opcache hot, no aspects: +0.45 ms per request** (median; the synthetic baseline boots in 1.62 ms;
-  about 0.15 ms less since the changes for issue #3, see below).
-  It is the entry line (0.53 ms) and the bootstrap callback (0.04 ms); the container build and the calls of
-  unadvised services cost the same as without the bridge. The request includes 24 more files (the bridge, the aspect
-  kernel and its class loader), its memory peak does not change, and it never loads the weaver or a parser.
-- **Registering aspects is almost free.** With 1, 10 or 50 aspects the entry line stays between 0.53 and 0.65 ms
-  over the runs (a few µs per aspect at most, below the noise) because aspects are only registered as deferred
-  services: no aspect class is loaded while the application boots in production.
-- **Resolving an aspect costs about 15 µs, once per request, on the first call of one of its advices** (the native
-  lazy proxy is initialized from the Yii container). An advised call then costs about 0.5 µs more than a plain call
-  (5,000 advised calls: 2.85 ms instead of 0.40 ms), which is the interception of the framework.
-- **Debug mode adds +0.87 ms without aspects.** With woven classes it costs about 70 µs per woven class and request:
+Recorded on 2026-11-07 with goaop/framework 4.0.0 on PHP 8.5.12, on a faster machine than the previous results (the
+baseline boots in 1.02 ms instead of 1.62 ms): the absolute numbers are lower, relative to the baseline the overheads
+of the bridge are the same as with the framework `dev-master` of the previous results. A second full run and the
+aspect count runs below agree within 0.05 ms on the hot requests.
+
+- **Production, opcache hot, no aspects: +0.31 ms per request** (median; the synthetic baseline boots in 1.02 ms).
+  It is the entry line (0.37 ms) and the bootstrap callback (0.04 ms); the container build is cheaper than without
+  the bridge, because the runner reuses the parameters the entry line built, and the calls of unadvised services cost
+  the same. The request includes 27 more files (the bridge, its config, the aspect kernel and its class loader), its
+  memory peak does not change, and it never loads the weaver or a parser.
+- **Registering aspects is almost free.** With 1, 10 or 50 aspects the entry line stays between 0.45 and 0.51 ms (a
+  few µs per aspect at most) because aspects are only registered as deferred services: no aspect class is loaded
+  while the application boots in production.
+- **Resolving an aspect costs about 10 µs, once per request, on the first call of one of its advices** (the native
+  lazy proxy is initialized from the Yii container). An advised call then costs about 0.4 µs more than a plain call
+  (5,000 advised calls: 2.16 ms instead of 0.30 ms), which is the interception of the framework.
+- **Debug mode adds +0.51 ms without aspects.** With woven classes it costs about 35 µs per woven class and request:
   in debug mode the framework includes woven classes through `php://filter` (so breakpoints and magic constants point
   at the original sources), and opcache never caches those includes. That is the price of debug mode, keep it off in
   production.
-- **Without opcache** (console commands), the bridge adds about +5 ms per process without aspects, mostly compiling
+- **Without opcache** (console commands), the bridge adds about +4.5 ms per process without aspects, mostly compiling
   its files and the kernel. The first request after a deployment without `aop:warmup` (`cli-cold`) weaves every class
-  it loads: +45 ms without aspects, +112 ms with them for the 50 classes of this application. Run `./yii aop:warmup`
+  it loads: +33 ms without aspects, +108 ms with them for the 50 classes of this application. Run `./yii aop:warmup`
   at deployment.
 
-Every budget of `budgets.php` is met, and the structural rules hold in every mode (see [README.md](README.md)).
+Every budget of `budgets.php` is met, and the structural rules hold in every mode (see [README.md](README.md)). The
+budgets are unchanged: they were set to about twice the medians of the slower machine of the previous results, which
+is the headroom CI machines need.
 
 ## Where the entry line goes
 
 `AopBootstrap::init()` in production with a hot opcache (10 aspects, medians of 200 requests of a profiling copy of
-the entry line):
+the entry line; measured on 2026-10-16 with the framework `dev-master` and the tag lookup enabled, not re-measured):
 
 | Step | Time |
 |---|--:|
@@ -59,41 +66,43 @@ files: the machine differs from the one of the full results below.
 
 The runner reuses the parameters the entry line built, so the container build got cheaper, and with its defaults the
 entry line no longer evaluates the `di` and `di-tags` groups: a request without aspects costs about 0.15 ms less. A
-request loads 1 more file (`config/kernel.php`). The full results below predate the change.
+request loads 1 more file (`config/kernel.php`). The full results below include the change.
 
 ## Aspect count (opcache hot, 50 services)
 
 | Aspects | Mode | Entry line | Bootstrap | First calls | Steady calls | Total | Overhead |
 |--:|---|--:|--:|--:|--:|--:|--:|
-| 1 | production | 0.57 | 0.05 | 0.75 | 2.88 | 4.90 | +3.30 |
-| 10 | production | 0.57 | 0.05 | 0.91 | 2.85 | 5.03 | +3.41 |
-| 50 | production | 0.55 | 0.05 | 1.44 | 2.86 | 5.52 | +4.04 |
-| 1 | debug | 0.64 | 0.10 | 2.60 | 2.92 | 9.09 | +6.95 |
-| 10 | debug | 0.70 | 0.12 | 2.90 | 2.98 | 9.69 | +7.51 |
-| 50 | debug | 0.88 | 0.24 | 4.65 | 2.87 | 11.72 | +9.64 |
+| 1 | production | 0.45 | 0.04 | 0.53 | 2.15 | 3.43 | +2.40 |
+| 10 | production | 0.45 | 0.04 | 0.62 | 2.16 | 3.55 | +2.53 |
+| 50 | production | 0.51 | 0.04 | 1.01 | 2.20 | 4.06 | +3.01 |
+| 1 | debug | 0.49 | 0.06 | 1.46 | 2.18 | 5.58 | +4.27 |
+| 10 | debug | 0.55 | 0.08 | 1.60 | 2.22 | 5.91 | +4.57 |
+| 50 | debug | 0.69 | 0.15 | 1.95 | 2.26 | 6.69 | +5.33 |
 
-In debug mode the bootstrap callback loads every aspect class to check it (0.24 ms for 50 aspects). Every aspect
+`php benchmarks/run.php --modes=server-hot --aspects=1` (and `=50`), the 10 aspects row is the full run below. In
+debug mode the bootstrap callback loads every aspect class to check it (0.15 ms for 50 aspects). Every aspect
 scenario weaves the same 50 services: the steady calls do not depend on the number of aspects.
 
 ## Opcache JIT
 
-With `opcache.jit=tracing` the hot requests measure about the same as without the JIT (production, no aspects: +0.47 ms;
-with aspects: +3.75 ms). On the PHP 8.5.11 build used here, weaving with the tracing JIT enabled fails: once the boot
-of the application has warmed up the JIT, the parser of pointcuts rejects valid pointcuts (`Unexpected token`).
-It does not happen with `opcache.jit=disable` (the PHP default) or `function`, nor on requests served from the
-AOP cache. Build the cache with the JIT disabled (`php -d opcache.jit=disable ./yii aop:warmup`, the CLI runs without
-opcache by default) if your PHP build is affected.
+With `opcache.jit=tracing` (`php benchmarks/run.php --modes=server-hot --debug=0 --jit=tracing`) the hot requests
+measure about the same as without the JIT: production, no aspects +0.25 ms, with aspects +2.22 ms (the 5,000 advised
+calls take 1.88 ms instead of 2.16 ms). These requests are served from the AOP cache, built by a CLI process without
+opcache. The tracing JIT of PHP 8.5.11 and 8.5.12 has bugs of its own: on 8.5.11, once the boot of the application has
+warmed up the JIT, the parser of pointcuts rejects valid pointcuts while weaving (`Unexpected token`); on 8.5.12,
+processes of the test suite crash with a segmentation fault. Build the cache with the JIT disabled
+(`php -d opcache.jit=disable ./yii aop:warmup`, the CLI runs without opcache by default) if your PHP build is affected.
 
 ## Full results
 
 | | |
 |---|---|
-| date | 2026-10-16 19:44 UTC |
-| php | 8.5.11 (Linux x86_64, NTS) |
-| cpu | Intel(R) Xeon(R) Processor @ 2.80GHz (4 logical cores) |
+| date | 2026-11-07 11:58 UTC |
+| php | 8.5.12 (Linux x86_64, NTS) |
+| cpu | Intel(R) Xeon(R) Processor @ 2.10GHz (4 logical cores) |
 | application | 50 services (every even one array-defined), 10 aspects advising them (100 steady calls per service) |
 | samples | 30 processes per CLI mode, 500 requests (after 50 warm-up requests) per server, opcache.jit=disable |
-| goaop/framework | dev-master (02cbe01d) |
+| goaop/framework | 4.0.0 (5d524816) |
 | yiisoft/config | 1.6.2 (a760058c) |
 | yiisoft/di | 1.4.1 (09545283) |
 | yiisoft/yii-runner-console | 2.2.1 (16ca4daa) |
@@ -104,46 +113,46 @@ Medians in milliseconds; "overhead" compares the median total with the one of th
 
 | Scenario | Total | p95 | Overhead | Entry line | Container | Bootstrap | First calls | Steady calls | Memory peak | Files |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| baseline | 14.80 | 20.61 | – | – | 6.31 | 0.06 | 2.46 | 0.44 | 2.6 MiB | 126 |
-| empty | 60.09 | 76.99 | +45.29 (+306%) | 6.99 | 5.12 | 0.38 | 39.90 | 0.45 | 7.4 MiB | 246 |
-| aspects | 127.07 | 170.04 | +112.27 (+758%) | 6.39 | 4.72 | 0.35 | 107.20 | 3.03 | 10.3 MiB | 402 |
+| baseline | 12.13 | 15.55 | – | – | 5.00 | 0.04 | 1.45 | 0.35 | 2.7 MiB | 128 |
+| empty | 45.43 | 62.36 | +33.30 (+274%) | 7.48 | 1.86 | 0.33 | 30.41 | 0.36 | 7.6 MiB | 256 |
+| aspects | 120.36 | 157.16 | +108.22 (+892%) | 7.78 | 1.76 | 0.33 | 104.04 | 2.35 | 10.6 MiB | 412 |
 
 #### CLI, cold AOP cache, no opcache, debug mode
 
 | Scenario | Total | p95 | Overhead | Entry line | Container | Bootstrap | First calls | Steady calls | Memory peak | Files |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| baseline | 17.29 | 24.75 | – | – | 8.91 | 0.07 | 1.67 | 0.45 | 2.9 MiB | 133 |
-| empty | 60.83 | 80.63 | +43.54 (+252%) | 6.24 | 35.85 | 0.40 | 11.04 | 0.50 | 7.6 MiB | 252 |
-| aspects | 144.33 | 192.70 | +127.04 (+735%) | 6.53 | 92.02 | 0.43 | 36.10 | 3.18 | 10.4 MiB | 408 |
+| baseline | 13.24 | 18.57 | – | – | 6.68 | 0.04 | 1.05 | 0.37 | 2.9 MiB | 135 |
+| empty | 45.92 | 65.22 | +32.68 (+247%) | 7.37 | 25.24 | 0.35 | 8.09 | 0.39 | 7.8 MiB | 262 |
+| aspects | 130.86 | 149.06 | +117.61 (+888%) | 7.89 | 76.96 | 0.41 | 38.60 | 2.42 | 10.8 MiB | 418 |
 
 #### CLI, warm AOP cache, no opcache, production mode
 
 | Scenario | Total | p95 | Overhead | Entry line | Container | Bootstrap | First calls | Steady calls | Memory peak | Files |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| baseline | 15.14 | 22.65 | – | – | 6.35 | 0.05 | 2.35 | 0.42 | 2.6 MiB | 126 |
-| empty | 20.15 | 27.43 | +5.01 (+33%) | 6.35 | 4.94 | 0.33 | 2.32 | 0.41 | 3.2 MiB | 150 |
-| aspects | 28.59 | 40.13 | +13.46 (+89%) | 6.60 | 4.81 | 0.34 | 6.54 | 2.99 | 4.0 MiB | 231 |
+| baseline | 11.40 | 14.16 | – | – | 4.69 | 0.04 | 1.42 | 0.34 | 2.7 MiB | 128 |
+| empty | 15.91 | 21.33 | +4.50 (+39%) | 7.18 | 1.80 | 0.31 | 1.40 | 0.34 | 3.5 MiB | 156 |
+| aspects | 20.49 | 26.47 | +9.09 (+80%) | 7.27 | 1.78 | 0.32 | 4.34 | 2.26 | 4.2 MiB | 238 |
 
 #### CLI, warm AOP cache, no opcache, debug mode
 
 | Scenario | Total | p95 | Overhead | Entry line | Container | Bootstrap | First calls | Steady calls | Memory peak | Files |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| baseline | 18.54 | 25.25 | – | – | 9.49 | 0.06 | 1.84 | 0.50 | 2.9 MiB | 133 |
-| empty | 23.80 | 31.06 | +5.27 (+28%) | 6.44 | 7.92 | 0.35 | 1.74 | 0.53 | 3.6 MiB | 157 |
-| aspects | 32.99 | 45.95 | +14.45 (+78%) | 6.56 | 10.73 | 0.58 | 5.54 | 3.09 | 4.2 MiB | 242 |
+| baseline | 12.91 | 17.03 | – | – | 6.54 | 0.04 | 1.01 | 0.37 | 2.9 MiB | 135 |
+| empty | 17.54 | 20.48 | +4.64 (+36%) | 7.10 | 3.77 | 0.34 | 1.04 | 0.34 | 3.7 MiB | 163 |
+| aspects | 24.58 | 34.56 | +11.67 (+90%) | 7.44 | 5.77 | 0.52 | 3.77 | 2.27 | 4.4 MiB | 249 |
 
 #### php -S, opcache + AOP cache hot, production mode
 
 | Scenario | Total | p95 | Overhead | Entry line | Container | Bootstrap | First calls | Steady calls | Memory peak | Files |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| baseline | 1.62 | 2.56 | – | – | 0.48 | 0.01 | 0.53 | 0.40 | 0.5 MiB | 126 |
-| empty | 2.07 | 3.19 | +0.45 (+28%) | 0.53 | 0.42 | 0.05 | 0.50 | 0.40 | 0.5 MiB | 150 |
-| aspects | 5.03 | 9.37 | +3.41 (+211%) | 0.57 | 0.43 | 0.05 | 0.90 | 2.85 | 0.7 MiB | 231 |
+| baseline | 1.02 | 1.56 | – | – | 0.27 | 0.01 | 0.34 | 0.29 | 0.5 MiB | 128 |
+| empty | 1.33 | 1.97 | +0.31 (+30%) | 0.37 | 0.16 | 0.04 | 0.35 | 0.30 | 0.5 MiB | 155 |
+| aspects | 3.55 | 5.51 | +2.53 (+248%) | 0.45 | 0.16 | 0.04 | 0.62 | 2.16 | 0.7 MiB | 237 |
 
 #### php -S, opcache + AOP cache hot, debug mode
 
 | Scenario | Total | p95 | Overhead | Entry line | Container | Bootstrap | First calls | Steady calls | Memory peak | Files |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| baseline | 2.18 | 3.43 | – | – | 0.95 | 0.02 | 0.50 | 0.45 | 0.5 MiB | 133 |
-| empty | 3.05 | 4.74 | +0.87 (+40%) | 0.66 | 0.99 | 0.07 | 0.63 | 0.45 | 0.5 MiB | 157 |
-| aspects | 9.69 | 15.92 | +7.51 (+344%) | 0.70 | 2.57 | 0.12 | 2.90 | 2.98 | 0.9 MiB | 242 |
+| baseline | 1.35 | 1.83 | – | – | 0.53 | 0.01 | 0.31 | 0.34 | 0.5 MiB | 135 |
+| empty | 1.86 | 2.47 | +0.51 (+38%) | 0.44 | 0.49 | 0.05 | 0.40 | 0.35 | 0.5 MiB | 162 |
+| aspects | 5.91 | 8.25 | +4.57 (+339%) | 0.55 | 1.28 | 0.08 | 1.60 | 2.22 | 0.9 MiB | 248 |

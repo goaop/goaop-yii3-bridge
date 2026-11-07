@@ -35,10 +35,17 @@ body:
     validations:
       required: true
   - type: input
+    id: bridge-version
+    attributes:
+      label: goaop/goaop-yii3-bridge version
+      description: "`composer show goaop/goaop-yii3-bridge | grep versions`"
+    validations:
+      required: true
+  - type: input
     id: goaop-version
     attributes:
       label: goaop/framework version
-      placeholder: "4.0-dev"
+      placeholder: "4.0.0"
     validations:
       required: true
   - type: textarea

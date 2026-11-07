@@ -15,4 +15,6 @@ declare(strict_types=1);
 return [
     'goaop/goaop-yii3-bridge' => $params['goaop/goaop-yii3-bridge'] ?? null,
     'yiisoft/aliases' => $params['yiisoft/aliases'] ?? null,
+    // The command map of the console runner tells whether the process builds the AOP cache (Command\BuildProcess)
+    'yiisoft/yii-console' => $params['yiisoft/yii-console'] ?? null,
 ];

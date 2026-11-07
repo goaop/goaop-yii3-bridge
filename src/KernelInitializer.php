@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge;
 
+use Go\Yii3\GoAopBridge\Command\BuildProcess;
 use Go\Yii3\GoAopBridge\Config\AspectList;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
@@ -28,11 +29,20 @@ use UnexpectedValueException;
  */
 final class KernelInitializer
 {
+    /**
+     * @param mixed $consoleParams The "yiisoft/yii-console" parameters of the runner, {@see BuildProcess}
+     */
+    public function __construct(private readonly mixed $consoleParams = null) {}
+
     public function initialize(ContainerInterface $container): AspectYii3Kernel
     {
         $kernel = AspectYii3Kernel::instance();
         // Options and aspects are only resolved when the entry script did not initialize the kernel
-        if (!$kernel->isInitialized()) {
+        if (!AspectYii3Kernel::isInitialized()) {
+            // Bootstrap callbacks run after this one may load classes the prebuilt cache misses (#808)
+            if ((PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') && is_array($_SERVER['argv'] ?? null)) {
+                BuildProcess::mark($this->consoleParams, array_values(array_filter($_SERVER['argv'], is_string(...))));
+            }
             $kernel->boot(
                 self::service($container, KernelOptions::class),
                 self::service($container, AspectList::class),

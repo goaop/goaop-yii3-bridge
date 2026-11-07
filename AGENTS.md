@@ -8,7 +8,7 @@ An integration bridge that plugs the [Go! AOP framework](https://github.com/goao
 It starts the aspect kernel before the Yii runner autoloads application classes, registers aspects as lazy services
 resolved from the Yii container, and adds the `aop:*` console commands.
 
-- Target runtime: PHP >= 8.4, Yii3 (yiisoft/config, yiisoft/di, yiisoft/aliases), goaop/framework 4.x
+- Target runtime: PHP >= 8.4, Yii3 (yiisoft/config, yiisoft/di, yiisoft/aliases), goaop/framework ^4.0
   (attribute-based aspects only).
 - Package type: `library` with yiisoft/config plugin groups (`extra.config-plugin` in `composer.json`).
 - Namespace: `Go\Yii3\GoAopBridge\` (`src/`), tests `Go\Yii3\GoAopBridge\Tests\` (`tests/`), fixture application
@@ -21,11 +21,12 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `config/bootstrap.php` — `KernelInitializer::initialize()`: attaches the Yii container to the kernel, initializes the
   kernel itself when the entry line was not used (fallback), checks the aspects in debug mode.
 - `config/params-console.php` — registers the commands with yii-console (autowired, no `di-console` needed).
-- `config/kernel.php` — the `goaop-kernel` group: returns the bridge and alias parameters. Its file is evaluated with
-  the params group of the config it is read from, so the entry line sees the parameters of the runner.
+- `config/kernel.php` — the `goaop-kernel` group: returns the bridge, alias and yii-console parameters. Its file is
+  evaluated with the params group of the config it is read from, so the entry line sees the parameters of the runner.
 - `src/AopBootstrap.php` — the entry line (`AopBootstrap::init($runner->getConfig(), $rootPath)` in every entry script,
-  between the creation of the runner and its run): reads the `goaop-kernel` group of the runner's config, boots the
-  kernel before the runner builds the container.
+  between the creation of the runner and its run): reads the `goaop-kernel` group of the runner's config, marks a
+  console process running a cache-building command as a build process (`Command\BuildProcess`), boots the kernel
+  before the runner builds the container.
 - `src/Kernel/AspectYii3Kernel.php` — `configureAop()` registers every aspect with `addLazyService()`; the factory
   resolves it through `ContainerResolver` (the Yii container, attached later by the bootstrap callback).
   `attachContainer()` also makes the Yii container the PSR-11 delegate of the aspect container
@@ -34,7 +35,10 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — the opt-in tag lookup (`aspectTag`, e.g. `goaop.aspect`) in the container config.
-- `src/Command/*` — subclasses of the framework commands; `InjectedKernel` drops the `loader` argument.
+- `config/params-console.php` registers the framework commands as they are (`aop:opcache`, `aop:debug:*`): they find
+  the kernel the entry line initialized. `src/Command/` holds only what the framework can not do in a Yii3 console:
+  `WarmupCommand` (`aop:warmup`, starts its workers through the entry script), the hidden `WarmupWorkerCommand` and
+  `BuildProcess` (the cache-building command of the process, read from `$_SERVER['argv']` and the command map).
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
 
@@ -67,6 +71,16 @@ resolved from the Yii container, and adds the `aop:*` console commands.
   fallback the `ConfigInterface` the runner registers in the container (the same object).
 - `Go\Core\AspectKernel` is a process-global singleton with a `final protected` constructor. Tests touching the kernel
   run in separate PHPUnit processes, each with its own `@runtime` (`TestApplication::prepareRuntime()`).
+- With `Features::PREBUILT_CACHE` a class the cache misses fails the process (goaop/framework#808), except in a build
+  process marked by `CachePathManager::markBuildProcess()` before the class loads. The runner loads application
+  classes before the console runs a command, so the entry line (and the bootstrap fallback, for the callbacks after
+  it) marks the process before the kernel boots, when the command is a cache-building one (`BuildProcess`). A new
+  command that builds the cache belongs in `BuildProcess::COMMAND_CLASSES`.
+- Warm-up workers and the coordinator must boot with the same configuration and `appDir`: the records the workers
+  report are keyed relative to it. That is why a worker runs the entry script (same runner, environment variables
+  inherited) and never a bootstrap file of the bridge.
+- `config/params-console.php` (and every params file) references classes with `::class` only: a class constant
+  (`WarmupWorkerCommand::NAME`) would load the class while the entry line reads the config.
 - `cacheFileMode` must reach the kernel as an `int`; strings of octal digits are converted by `KernelOptions`.
 - Aspects use PHP 8 attributes (`Go\Lang\Attribute\Before`, `After`, `Around`, `AfterThrowing`, `Pointcut`); advice
   methods must be `public`. No Doctrine annotations.
@@ -74,7 +88,7 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 ## Development commands
 
 ```bash
-composer install            # needs minimum-stability: dev deps (goaop/framework 4.x-dev)
+composer install
 composer validate --strict
 composer test               # phpunit
 composer analyse            # phpstan, level max (src, config, tests, benchmarks)
@@ -103,8 +117,8 @@ composer benchmark          # boot-time benchmarks, see benchmarks/README.md (--
   (`--ignore-platform-req=php+` for 8.6).
 - Do not add a `containerClass` option with `Go\Core\GoAspectContainer` (removed upstream) and do not call
   `registerAspect()` (removed in framework 4.x: aspects are `add()`/`addLazyService()` services).
-- The upstream 4.x line is unreleased: composer requires `minimum-stability: dev` + `prefer-stable: true`. Do not
-  "fix" that to stable until goaop/framework 4.0 is tagged.
+- A new framework option, feature flag or command is exposed as a parameter (typed and validated in `KernelOptions`) or
+  a command of the `aop` namespace; a command that builds the cache also goes into `BuildProcess::COMMAND_CLASSES`.
 
 ## Remote sessions (Claude Code on the web)
 
@@ -152,17 +166,19 @@ COMPOSER_ALLOW_SUPERUSER=1 composer install --prefer-source --no-interaction
 `composer test` and `composer analyse` refuse to run as root with plugins disabled: run `vendor/bin/phpunit` and
 `vendor/bin/phpstan analyse` directly, or prefix them with `COMPOSER_ALLOW_SUPERUSER=1`.
 
-### PHP 8.5.11 tracing JIT
+### PHP 8.5.11 and 8.5.12 tracing JIT
 
-PHP 8.5.11 has an internal bug in the tracing JIT: once the JIT is warm, the pointcut parser of the framework rejects
-valid pointcuts (`Unexpected token \`, `Unexpected ( at line 1`, ...). Not a bridge or framework bug. Session images
-may enable opcache and `opcache.jit=tracing` for the CLI; disable the JIT for the test run (the functional tests
-forward `PHP_INI_SCAN_DIR` to the `yii` processes they start):
+The tracing JIT of PHP 8.5.11 and 8.5.12 has internal bugs. Not a bridge or framework bug. On 8.5.11, once the JIT is
+warm, the pointcut parser of the framework rejects valid pointcuts (`Unexpected token \`, `Unexpected ( at line 1`,
+...); on 8.5.12, PHPUnit child processes of weaving tests crash with a segmentation fault ("Test was run in child
+process and ended unexpectedly", e.g. `TaggedAspectTest`, `EarlyInitializationTest`). Session images may enable
+opcache and `opcache.jit=tracing` for the CLI; disable the JIT for the test run (the functional tests forward
+`PHP_INI_SCAN_DIR` to the `yii` processes they start). CI disables it with the `ini-values` of setup-php.
 
 ```bash
 mkdir -p /tmp/php-nojit && echo 'opcache.jit=disable' > /tmp/php-nojit/zz-nojit.ini
 PHP_INI_SCAN_DIR=":/tmp/php-nojit" vendor/bin/phpunit
 ```
 
-Once `php -v` reports 8.5.12 or higher, check that the tests pass with the tracing JIT on and remove this item. The
-benchmarks set their own ini (JIT off unless `--jit` is given).
+Once `php -v` reports 8.5.13 or higher, check that the tests pass with the tracing JIT on and remove this item (and
+the CI setting). The benchmarks set their own ini (JIT off unless `--jit` is given).

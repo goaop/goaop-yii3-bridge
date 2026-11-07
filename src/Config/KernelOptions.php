@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Config;
 
+use Go\Aop\Features;
 use InvalidArgumentException;
 use Yiisoft\Aliases\Aliases;
 
@@ -34,8 +35,9 @@ final readonly class KernelOptions
     public const array DEBUG_ENVIRONMENT_VARIABLES = ['GOAOP_DEBUG', 'APP_DEBUG'];
 
     /**
-     * @param list<string> $includePaths
-     * @param list<string> $excludePaths
+     * @param list<string>          $includePaths
+     * @param list<string>          $excludePaths
+     * @param positive-int|null     $parsedFilesLimit Null applies the default of the kernel
      */
     public function __construct(
         public bool $debug,
@@ -45,6 +47,7 @@ final readonly class KernelOptions
         public int $features,
         public array $includePaths,
         public array $excludePaths,
+        public ?int $parsedFilesLimit = null,
     ) {}
 
     /**
@@ -62,6 +65,7 @@ final readonly class KernelOptions
             features: self::features($params['features'] ?? 0),
             includePaths: self::paths($params, 'includePaths', $aliases),
             excludePaths: self::paths($params, 'excludePaths', $aliases),
+            parsedFilesLimit: self::parsedFilesLimit($params['parsedFilesLimit'] ?? null),
         );
     }
 
@@ -76,6 +80,7 @@ final readonly class KernelOptions
      *     features: int,
      *     includePaths: list<string>,
      *     excludePaths: list<string>,
+     *     parsedFilesLimit?: positive-int,
      * }
      */
     public function toArray(): array
@@ -91,6 +96,9 @@ final readonly class KernelOptions
         // Without an explicit mode the kernel applies its own umask-based default
         if ($this->cacheFileMode !== null) {
             $options['cacheFileMode'] = $this->cacheFileMode;
+        }
+        if ($this->parsedFilesLimit !== null) {
+            $options['parsedFilesLimit'] = $this->parsedFilesLimit;
         }
 
         return $options;
@@ -165,6 +173,31 @@ final readonly class KernelOptions
     {
         if (!is_int($value)) {
             throw self::invalid('features', 'an integer bitmask of Go\Aop\Features constants', $value);
+        }
+        if (($value & ~Features::ALL) !== 0) {
+            throw new InvalidArgumentException(sprintf(
+                'The "%s" parameter "features" must be a bitmask of Go\Aop\Features constants, %d contains unknown bits %d.',
+                self::PARAMS_KEY,
+                $value,
+                $value & ~Features::ALL,
+            ));
+        }
+
+        return $value;
+    }
+
+    /**
+     * Accepts a positive integer or a string of decimal digits (e.g. from an environment variable)
+     *
+     * @return positive-int|null
+     */
+    private static function parsedFilesLimit(mixed $value): ?int
+    {
+        if (is_string($value) && ctype_digit($value)) {
+            $value = (int) $value;
+        }
+        if ($value !== null && (!is_int($value) || $value < 1)) {
+            throw self::invalid('parsedFilesLimit', 'a positive integer, a string of digits or null', $value);
         }
 
         return $value;

@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Tests\Unit\Config;
 
+use Go\Aop\Features;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -52,36 +53,71 @@ final class KernelOptionsTest extends TestCase
         $this->assertSame(0, $options->features);
         $this->assertSame(['/app/src'], $options->includePaths);
         $this->assertSame([], $options->excludePaths);
+        $this->assertNull($options->parsedFilesLimit);
     }
 
     public function testToArrayMatchesKernelOptionsFormat(): void
     {
         $options = KernelOptions::fromParams([
-            'debug'         => true,
-            'appDir'        => '@root',
-            'cacheDir'      => '/tmp/aop',
-            'cacheFileMode' => 0750,
-            'features'      => 4,
-            'includePaths'  => ['@src/Service'],
-            'excludePaths'  => ['@src/Service/Legacy', '/opt/shared'],
+            'debug'            => true,
+            'appDir'           => '@root',
+            'cacheDir'         => '/tmp/aop',
+            'cacheFileMode'    => 0750,
+            'features'         => 4,
+            'includePaths'     => ['@src/Service'],
+            'excludePaths'     => ['@src/Service/Legacy', '/opt/shared'],
+            'parsedFilesLimit' => 250,
         ], $this->aliases);
 
         $this->assertSame([
-            'debug'         => true,
-            'appDir'        => '/app',
-            'cacheDir'      => '/tmp/aop',
-            'features'      => 4,
-            'includePaths'  => ['/app/src/Service'],
-            'excludePaths'  => ['/app/src/Service/Legacy', '/opt/shared'],
-            'cacheFileMode' => 0750,
+            'debug'            => true,
+            'appDir'           => '/app',
+            'cacheDir'         => '/tmp/aop',
+            'features'         => 4,
+            'includePaths'     => ['/app/src/Service'],
+            'excludePaths'     => ['/app/src/Service/Legacy', '/opt/shared'],
+            'cacheFileMode'    => 0750,
+            'parsedFilesLimit' => 250,
         ], $options->toArray());
     }
 
-    public function testToArrayLeavesCacheFileModeToTheKernelWhenNotConfigured(): void
+    public function testToArrayLeavesCacheFileModeAndParsedFilesLimitToTheKernelWhenNotConfigured(): void
     {
         $options = KernelOptions::fromParams(['appDir' => '@root', 'cacheDir' => '@runtime/aop'], $this->aliases);
 
         $this->assertArrayNotHasKey('cacheFileMode', $options->toArray());
+        $this->assertArrayNotHasKey('parsedFilesLimit', $options->toArray());
+    }
+
+    /**
+     * @return iterable<string, array{mixed, int}>
+     */
+    public static function parsedFilesLimits(): iterable
+    {
+        yield 'integer' => [500, 500];
+        yield 'digits' => ['20', 20];
+    }
+
+    #[DataProvider('parsedFilesLimits')]
+    public function testParsedFilesLimitAcceptsPositiveIntegersAndDigits(mixed $value, int $expected): void
+    {
+        $options = KernelOptions::fromParams(
+            ['appDir' => '@root', 'cacheDir' => '/tmp/aop', 'parsedFilesLimit' => $value],
+            $this->aliases,
+        );
+
+        $this->assertSame($expected, $options->parsedFilesLimit);
+    }
+
+    public function testFeaturesAcceptEveryFlagOfTheFramework(): void
+    {
+        $features = Features::INTERCEPT_INCLUDES | Features::PREBUILT_CACHE | Features::PARTIAL_REFLECTION;
+        $options  = KernelOptions::fromParams(
+            ['appDir' => '@root', 'cacheDir' => '/tmp/aop', 'features' => $features],
+            $this->aliases,
+        );
+
+        $this->assertSame($features, $options->features);
     }
 
     /**
@@ -160,6 +196,10 @@ final class KernelOptionsTest extends TestCase
         yield 'debug word' => [['debug' => 'sometimes'] + $valid, 'parameter "debug" must be a boolean'];
         yield 'cache file mode digits' => [['cacheFileMode' => '999'] + $valid, 'parameter "cacheFileMode" must be an integer'];
         yield 'features string' => [['features' => '4'] + $valid, 'parameter "features" must be an integer bitmask'];
+        yield 'unknown feature' => [['features' => 1 | 64] + $valid, 'parameter "features" must be a bitmask of Go\Aop\Features constants, 65 contains unknown bits 1.'];
+        yield 'parsed files limit zero' => [['parsedFilesLimit' => 0] + $valid, 'parameter "parsedFilesLimit" must be a positive integer, a string of digits or null, int given'];
+        yield 'parsed files limit zero digits' => [['parsedFilesLimit' => '0'] + $valid, 'parameter "parsedFilesLimit" must be a positive integer'];
+        yield 'parsed files limit float' => [['parsedFilesLimit' => 1.5] + $valid, 'parameter "parsedFilesLimit" must be a positive integer, a string of digits or null, float given'];
         yield 'include paths string' => [['includePaths' => '@src'] + $valid, 'parameter "includePaths" must be a list of paths, string given'];
         yield 'exclude path integer' => [['excludePaths' => [42]] + $valid, 'parameter "excludePaths" must be a list of non-empty path strings, int given'];
     }
