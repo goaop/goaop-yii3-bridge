@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Command;
 
+use Go\Console\Command\DebugWeavingCommand;
 use Go\Instrument\ClassLoading\CachePathManager;
 
 /**

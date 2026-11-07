@@ -10,10 +10,10 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Tests\Command;
 
-use Go\Yii3\GoAopBridge\Command\DebugAdvisorCommand;
-use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
-use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
-use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
+use Go\Console\Command\DebugAdvisorCommand;
+use Go\Console\Command\DebugAspectCommand;
+use Go\Console\Command\DebugWeavingCommand;
+use Go\Console\Command\OpcacheWarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
@@ -24,39 +24,47 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use ReflectionMethod;
+use Yiisoft\Yii\Console\CommandLoader;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Command\LazyCommand;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * The commands get the aspect kernel injected by the Yii container
+ * The commands run on the aspect kernel the entry line initialized
  */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
 final class CommandTest extends WeavingTestCase
 {
     /**
-     * @return iterable<string, array{class-string<Command>, string}>
+     * @return iterable<string, array{string, class-string<Command>}>
      */
     public static function commands(): iterable
     {
-        yield 'warmup' => [WarmupCommand::class, 'aop:warmup'];
-        yield 'debug aspect' => [DebugAspectCommand::class, 'aop:debug:aspect'];
-        yield 'debug advisor' => [DebugAdvisorCommand::class, 'aop:debug:advisor'];
-        yield 'debug weaving' => [DebugWeavingCommand::class, 'aop:debug:weaving'];
-        yield 'opcache' => [OpcacheWarmupCommand::class, 'aop:opcache'];
+        yield 'warmup' => ['aop:warmup', WarmupCommand::class];
+        yield 'warmup worker' => ['aop:warmup-worker', WarmupWorkerCommand::class];
+        yield 'opcache' => ['aop:opcache', OpcacheWarmupCommand::class];
+        yield 'debug aspect' => ['aop:debug:aspect', DebugAspectCommand::class];
+        yield 'debug advisor' => ['aop:debug:advisor', DebugAdvisorCommand::class];
+        yield 'debug weaving' => ['aop:debug:weaving', DebugWeavingCommand::class];
     }
 
     /**
+     * The framework commands are registered as they are: the console names them from the command map
+     *
      * @param class-string<Command> $commandClass
      */
     #[DataProvider('commands')]
-    public function testCommandIsNamedInTheAopNamespaceAndNeedsNoLoaderArgument(string $commandClass, string $name): void
+    public function testCommandIsRegisteredInTheAopNamespace(string $name, string $commandClass): void
     {
-        $command = $this->command($commandClass);
+        /** @var array{'yiisoft/yii-console': array{commands: array<string, class-string<Command>>}} $params */
+        $params = require dirname(__DIR__, 2) . '/config/params-console.php';
+        $loader = new CommandLoader($this->startApplication(), $params['yiisoft/yii-console']['commands']);
 
+        $command = $loader->get($name);
         $this->assertSame($name, $command->getName());
         $this->assertNotSame('', $command->getDescription());
-        $this->assertFalse($command->getDefinition()->hasArgument('loader'));
+        $this->assertInstanceOf($commandClass, $command instanceof LazyCommand ? $command->getCommand() : $command);
     }
 
     public function testWarmupWeavesTheApplicationIntoTheCache(): void

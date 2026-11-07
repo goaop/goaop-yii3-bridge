@@ -35,13 +35,10 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — the opt-in tag lookup (`aspectTag`, e.g. `goaop.aspect`) in the container config.
-- `src/Command/*` — subclasses of the framework commands (`aop:warmup`, `aop:opcache`, `aop:debug:*`), named in the
-  `aop` namespace; `InjectedKernel` injects the kernel and drops the `loader` argument. `aop:warmup --workers=N`
-  starts N workers running the entry script that called `AopBootstrap::init()` (`AspectYii3Kernel::getEntryScript()`)
-  with the hidden `aop:warmup-worker` (`WarmupWorkerCommand`), only when that script is the one running the process;
-  otherwise it weaves in-process with a warning. The worker hands its own (included) class file to
-  `WarmupWorker::main()` as the loader, so nothing else is executed. `BuildProcess` resolves the command of the console process from `$_SERVER['argv']` and the yii-console command map
-  (exact name or alias, else an unambiguous abbreviation, as Symfony's `Application::find()`), by class.
+- `config/params-console.php` registers the framework commands as they are (`aop:opcache`, `aop:debug:*`): they find
+  the kernel the entry line initialized. `src/Command/` holds only what the framework can not do in a Yii3 console:
+  `WarmupCommand` (`aop:warmup`, starts its workers through the entry script), the hidden `WarmupWorkerCommand` and
+  `BuildProcess` (the cache-building command of the process, read from `$_SERVER['argv']` and the command map).
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
 

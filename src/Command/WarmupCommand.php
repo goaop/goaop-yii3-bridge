@@ -59,8 +59,6 @@ EOT,
 )]
 final class WarmupCommand extends FrameworkCacheWarmupCommand
 {
-    use InjectedKernel;
-
     protected function createCacheWarmer(
         OutputInterface $output,
         bool $failFast = false,
@@ -87,7 +85,9 @@ final class WarmupCommand extends FrameworkCacheWarmupCommand
      */
     protected function getWorkerCommandLine(int $cachedFiles = AspectKernel::DEFAULT_PARSED_FILES_LIMIT, ?string $cacheDir = null): array
     {
-        $entryScript = $this->aspectKernel instanceof AspectYii3Kernel ? $this->aspectKernel->getEntryScript() : null;
+        // The kernel the entry line initialized, as the framework command finds it
+        $kernel      = AspectKernel::isInitialized() ? AspectKernel::getInstance() : null;
+        $entryScript = $kernel instanceof AspectYii3Kernel ? $kernel->getEntryScript() : null;
         $runningScript = $_SERVER['SCRIPT_FILENAME'] ?? null;
         // Only the script running this process is known to start the console application
         if ($entryScript === null || !is_string($runningScript) || realpath($runningScript) !== realpath($entryScript)

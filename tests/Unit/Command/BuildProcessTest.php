@@ -10,10 +10,10 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Tests\Unit\Command;
 
+use Go\Console\Command\DebugAspectCommand;
+use Go\Console\Command\DebugWeavingCommand;
 use Go\Instrument\ClassLoading\CachePathManager;
 use Go\Yii3\GoAopBridge\Command\BuildProcess;
-use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
-use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;
 use Go\Yii3\GoAopBridge\Tests\App\Command\GreetCommand;

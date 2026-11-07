@@ -257,8 +257,8 @@ With [yiisoft/yii-console](https://github.com/yiisoft/yii-console) installed, th
 | `./yii aop:debug:advisor`| Lists the advisors, or the classes and members one advisor matches (`--advisor=...`). |
 | `./yii aop:debug:weaving`| Weaves twice and reports proxies that differ, which reveals circular dependencies between aspects and woven classes. |
 
-They are the framework's own commands (`cache:warmup:aop`, `cache:warmup:opcache`, `debug:*`) in the `aop` namespace,
-with the kernel of the application injected by the container instead of a `loader` argument.
+They are the framework's own commands (`cache:warmup:aop`, `cache:warmup:opcache`, `debug:*`), registered under names
+of the `aop` namespace. They run on the kernel the entry line initialized: leave out their optional `loader` argument.
 
 The workers of `aop:warmup --workers=N` run the entry script again (`./yii`, with the hidden `aop:warmup-worker`
 command), so they boot the application with the same environment, configuration and aspects. That needs the entry
