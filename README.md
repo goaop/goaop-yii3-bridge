@@ -241,9 +241,10 @@ environment in `config/environments/<env>/params.php`:
 | `appDir`        | `'@root'`          | Application root, only files below it are woven. |
 | `cacheDir`      | `'@runtime/aop'`   | Woven sources, proxies and advisor caches. |
 | `cacheFileMode` | `null`             | Permissions of cache files: an integer (`0770`) or octal digits (`'770'`, e.g. from an environment variable). `null` means `0770` minus the umask. |
-| `features`      | `0`                | Bitmask of `Go\Aop\Features` flags, e.g. `Features::PREBUILT_CACHE`. |
+| `features`      | `0`                | Bitmask of `Go\Aop\Features` flags: `PREBUILT_CACHE` (see [Deployment](#deployment)), `PARTIAL_REFLECTION` (weave classes whose parent class, interface or trait Composer can't locate; members inherited from a missing ancestor aren't intercepted), `INTERCEPT_INCLUDES` (weave files loaded with `include`/`require`). |
 | `includePaths`  | `['@src']`         | Only these directories are woven. Keep it narrow. |
 | `excludePaths`  | `[]`               | Never woven. The cache directory and the framework are always excluded. |
+| `parsedFilesLimit` | `null`          | Number of parsed files kept in memory while weaving, also the default of `aop:warmup --cached-files`: more is faster on a large code base, fewer uses less memory. A positive integer or digits; `null` means the kernel default (100). |
 | `aspects`       | `[]`               | Aspect classes, resolved lazily from the Yii container. |
 | `aspectTag`     | `null`             | Opt-in container tag registering aspects (e.g. `'goaop.aspect'`), read from the common `di` and `di-tags` config groups before the kernel starts. See [Tagging aspects](#tagging-aspects-opt-in). |
 

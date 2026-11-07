@@ -20,7 +20,12 @@ return [
         // Permissions of the cache files: an integer (0770) or octal digits ("770"); null applies 0770 minus umask
         'cacheFileMode' => null,
 
-        // Bitmask of Go\Aop\Features flags, e.g. Features::PREBUILT_CACHE for read-only production file systems
+        /*
+         * Bitmask of Go\Aop\Features flags: Features::PREBUILT_CACHE trusts the cache built by "./yii aop:warmup"
+         * (read-only production file systems, a class the cache misses fails), Features::PARTIAL_REFLECTION weaves
+         * classes whose parent class, interface or trait Composer can not locate, Features::INTERCEPT_INCLUDES
+         * weaves files included with include/require
+         */
         'features' => 0,
 
         // Only these directories are woven, keep it narrow
@@ -28,6 +33,13 @@ return [
 
         // These directories are never woven (the cache directory and the framework are always excluded)
         'excludePaths' => [],
+
+        /*
+         * Number of parsed files kept in memory while weaving (also the default of "aop:warmup --cached-files"): more
+         * is faster for a large code base, fewer uses less memory. A positive integer or digits; null applies the
+         * default of the kernel (100)
+         */
+        'parsedFilesLimit' => null,
 
         /*
          * Aspect classes (implementing Go\Aop\Aspect, advices declared with #[Before], #[After], #[Around],

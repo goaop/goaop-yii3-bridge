@@ -55,6 +55,22 @@ final class AspectYii3KernelTest extends TestCase
         $this->assertSame(self::cacheDir(), $kernel->getOptions()['cacheDir']);
     }
 
+    public function testParsedFilesLimitReachesTheKernel(): void
+    {
+        $kernel = AspectYii3Kernel::instance();
+        $kernel->boot(
+            new KernelOptions(false, dirname(__DIR__, 2), self::cacheDir(), null, 0, [], [], parsedFilesLimit: 7),
+            AspectList::fromClassNames([]),
+        );
+
+        $this->assertSame(7, $kernel->getOptions()['parsedFilesLimit']);
+    }
+
+    public function testParsedFilesLimitDefaultsToTheOneOfTheKernel(): void
+    {
+        $this->assertSame(AspectKernel::DEFAULT_PARSED_FILES_LIMIT, self::bootKernel([])->getOptions()['parsedFilesLimit']);
+    }
+
     public function testAspectsAreRegisteredAsLazyServices(): void
     {
         $kernel = self::bootKernel([GreetingAspect::class]);
