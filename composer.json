@@ -49,7 +49,7 @@
         "yiisoft/yii-runner-console": "^2.2"
     },
     "suggest": {
-        "yiisoft/yii-console": "Adds the aop:warmup and aop:debug:* console commands"
+        "yiisoft/yii-console": "Adds the aop:warmup, aop:opcache and aop:debug:* console commands"
     },
     "autoload": {
         "psr-4": {
