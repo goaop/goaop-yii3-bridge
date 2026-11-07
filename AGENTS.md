@@ -91,7 +91,7 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 ## Development commands
 
 ```bash
-composer install            # stable dependencies only (goaop/framework ^4.0)
+composer install
 composer validate --strict
 composer test               # phpunit
 composer analyse            # phpstan, level max (src, config, tests, benchmarks)
@@ -120,10 +120,8 @@ composer benchmark          # boot-time benchmarks, see benchmarks/README.md (--
   (`--ignore-platform-req=php+` for 8.6).
 - Do not add a `containerClass` option with `Go\Core\GoAspectContainer` (removed upstream) and do not call
   `registerAspect()` (removed in framework 4.x: aspects are `add()`/`addLazyService()` services).
-- The bridge requires the stable goaop/framework ^4.0 and no `minimum-stability`. When the bridge needs an unreleased
-  framework change, wait for the framework release instead of requiring a dev version. A new framework option, feature
-  flag or command is exposed as a parameter (typed and validated in `KernelOptions`) or a command of the `aop`
-  namespace; a command that builds the cache also goes into `BuildProcess::COMMAND_CLASSES`.
+- A new framework option, feature flag or command is exposed as a parameter (typed and validated in `KernelOptions`) or
+  a command of the `aop` namespace; a command that builds the cache also goes into `BuildProcess::COMMAND_CLASSES`.
 
 ## Remote sessions (Claude Code on the web)
 
