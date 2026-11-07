@@ -39,7 +39,7 @@ final class AspectYii3KernelTest extends TestCase
 
         $this->assertSame($kernel, AspectKernel::getInstance());
         $this->assertSame($kernel, AspectYii3Kernel::instance());
-        $this->assertFalse($kernel->isInitialized());
+        $this->assertFalse(AspectYii3Kernel::isInitialized());
     }
 
     public function testBootInitializesKernelOnce(): void
@@ -50,7 +50,7 @@ final class AspectYii3KernelTest extends TestCase
             AspectList::fromClassNames([]),
         );
 
-        $this->assertTrue($kernel->isInitialized());
+        $this->assertTrue(AspectYii3Kernel::isInitialized());
         $this->assertSame([GreetingAspect::class], $kernel->getAspects()->toArray());
         $this->assertSame(self::cacheDir(), $kernel->getOptions()['cacheDir']);
     }

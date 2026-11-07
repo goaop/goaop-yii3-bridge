@@ -78,11 +78,6 @@ final class AspectYii3Kernel extends AspectKernel
         return $this->aspects ?? AspectList::fromClassNames([]);
     }
 
-    public function isInitialized(): bool
-    {
-        return $this->wasInitialized;
-    }
-
     /**
      * Attaches the Yii container the aspects are resolved from
      *

@@ -64,7 +64,7 @@ final class AopBootstrap
     public static function init(ConfigInterface $config, string $rootPath): AspectYii3Kernel
     {
         $kernel = AspectYii3Kernel::instance();
-        if ($kernel->isInitialized()) {
+        if (AspectYii3Kernel::isInitialized()) {
             return $kernel;
         }
 

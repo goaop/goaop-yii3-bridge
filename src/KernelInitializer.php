@@ -32,7 +32,7 @@ final class KernelInitializer
     {
         $kernel = AspectYii3Kernel::instance();
         // Options and aspects are only resolved when the entry script did not initialize the kernel
-        if (!$kernel->isInitialized()) {
+        if (!AspectYii3Kernel::isInitialized()) {
             $kernel->boot(
                 self::service($container, KernelOptions::class),
                 self::service($container, AspectList::class),

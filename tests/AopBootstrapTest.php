@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace Go\Yii3\GoAopBridge\Tests;
 
 use Go\Yii3\GoAopBridge\AopBootstrap;
+use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\ConfiguredServiceAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\PackageAspect;
@@ -33,7 +34,7 @@ final class AopBootstrapTest extends TestCase
 
         $kernel = TestApplication::initKernel();
 
-        $this->assertTrue($kernel->isInitialized());
+        $this->assertTrue(AspectYii3Kernel::isInitialized());
         $this->assertFalse($kernel->isContainerAttached());
         $options = $kernel->getOptions();
         $this->assertTrue($options['debug']);

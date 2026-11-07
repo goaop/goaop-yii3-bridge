@@ -67,7 +67,7 @@ final class PackageConfigTest extends TestCase
 
         $kernel = $container->get(AspectYii3Kernel::class);
         $this->assertInstanceOf(AspectYii3Kernel::class, $kernel);
-        $this->assertTrue($kernel->isInitialized());
+        $this->assertTrue(AspectYii3Kernel::isInitialized());
         $this->assertTrue($kernel->isContainerAttached());
         $this->assertSame($kernel, $container->get(AspectKernel::class));
         $this->assertSame($kernel->getContainer(), $container->get(AspectContainer::class));
