@@ -19,6 +19,7 @@ use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use Go\Aop\Exception\InvalidConfigurationException;
 use Go\Yii3\GoAopBridge\Tests\App\Aspect\GreetingAspect;
+use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
 use Go\Yii3\GoAopBridge\Tests\Weaving\WeavingTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
@@ -132,6 +133,44 @@ final class CommandTest extends WeavingTestCase
 
         $this->assertSame(Command::SUCCESS, $tester->execute(['--cached-files' => '1']));
         $this->assertTrue($this->cacheContainsFileFor('GreetingService'));
+    }
+
+    public function testOpcacheCompilesTheConfigurationAndTheEntryScript(): void
+    {
+        $command = $this->command(OpcacheWarmupCommand::class);
+        $appDir  = (string) realpath(TestApplication::rootPath() . '/tests/Support/App');
+
+        $files = array_map(
+            static fn (string $file): string => (string) realpath($file),
+            (array) (new ReflectionMethod($command, 'applicationFiles'))->invoke($command),
+        );
+
+        // The entry script of the application ("@root/yii"), the merge plan the runner read and the files it lists
+        $this->assertContains($appDir . '/yii', $files);
+        $this->assertContains($appDir . '/config/.merge-plan.php', $files);
+        $this->assertContains($appDir . '/config/params.php', $files);
+        $this->assertContains((string) realpath(dirname(__DIR__, 2) . '/config/kernel.php'), $files, 'A file of the vendor override layer');
+    }
+
+    public function testOpcacheLeavesAnEntryThatDoesNotResolveToTheFrameworkCommand(): void
+    {
+        $tester = new CommandTester($this->command(OpcacheWarmupCommand::class));
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('/no/such/entry.php');
+        $tester->execute(['--entry' => ['/no/such/entry.php']]);
+    }
+
+    public function testOpcacheNeedsTheFileCacheSettingsWithTheFilesOfTheApplication(): void
+    {
+        $tester = new CommandTester($this->command(OpcacheWarmupCommand::class));
+
+        // An entry that is a file of the application too is passed once; without the file cache settings the
+        // framework command stops before compiling
+        $exitCode = $tester->execute(['--entry' => [TestApplication::rootPath() . '/tests/Support/App/yii']]);
+
+        $this->assertSame(Command::FAILURE, $exitCode);
+        $this->assertStringContainsString('Can not prime the opcache file cache', $tester->getDisplay());
     }
 
     public function testDebugAspectShowsOneAspect(): void

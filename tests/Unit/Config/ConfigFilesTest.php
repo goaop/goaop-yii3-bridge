@@ -34,6 +34,11 @@ final class ConfigFilesTest extends TestCase
         ], $files, 'Group references and missing optional files are left out, patterns are expanded');
     }
 
+    public function testAFileThatIsNoMergePlanListsNothing(): void
+    {
+        $this->assertSame([], ConfigFiles::ofMergePlan(self::FIXTURE . '/not-a-merge-plan.php', self::FIXTURE . '/vendor'));
+    }
+
     public function testMergePlansReadByThisProcessAreFound(): void
     {
         $mergePlan = (string) realpath(self::FIXTURE . '/config/.merge-plan.php');

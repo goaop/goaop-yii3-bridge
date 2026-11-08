@@ -11,7 +11,7 @@ return [
             '/' => ['common/*.php'],
         ],
         'params-web' => [
-            '/' => ['$params', 'web.php'],
+            '/' => ['$params', 'web.php', ''],
         ],
     ],
     'prod' => [
