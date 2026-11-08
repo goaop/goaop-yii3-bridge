@@ -252,13 +252,14 @@ With [yiisoft/yii-console](https://github.com/yiisoft/yii-console) installed, th
 | Command                 | Purpose |
 |-------------------------|---------|
 | `./yii aop:warmup`      | Weaves every class below the include paths into the cache. Fails if a file can't be woven; `--fail-fast` stops at the first error. `--workers=N` weaves in N parallel processes, `--cache-dir=DIR` builds the cache in another directory, `--preload[=FILE]` writes an opcache.preload script, `--cached-files=N` overrides `parsedFilesLimit`. |
-| `./yii aop:opcache`     | Primes the opcache file cache (`opcache.file_cache`) with the AOP cache and the application, after `aop:warmup`. |
+| `./yii aop:opcache`     | Primes the opcache file cache (`opcache.file_cache`) with the AOP cache, the application and its configuration, after `aop:warmup`. |
 | `./yii aop:debug:aspect`| Lists the aspects with their pointcuts and advisors (`--aspect=App\\Aspect\\LoggingAspect` for one). |
 | `./yii aop:debug:advisor`| Lists the advisors, or the classes and members one advisor matches (`--advisor=...`). |
 | `./yii aop:debug:weaving`| Weaves twice and reports proxies that differ, which reveals circular dependencies between aspects and woven classes. |
 
 They are the framework's own commands (`cache:warmup:aop`, `cache:warmup:opcache`, `debug:*`), registered under names
-of the `aop` namespace. They run on the kernel the entry line initialized: leave out their optional `loader` argument.
+of the `aop` namespace; `aop:warmup` and `aop:opcache` are extended for Yii3. They run on the kernel the entry line
+initialized: leave out their optional `loader` argument.
 
 The workers of `aop:warmup --workers=N` run the entry script again (`./yii`, with the hidden `aop:warmup-worker`
 command), so they boot the application with the same environment, configuration and aspects. That needs the entry
@@ -309,14 +310,17 @@ With opcache, two more steps save the compilation of the woven classes in every 
 
 - `./yii aop:warmup --preload` writes `_preload.php` to the cache directory (or `--preload=FILE`). Point
   `opcache.preload` at it (with `opcache.preload_user`): every woven class is linked once when PHP starts.
-- `./yii aop:opcache` compiles the AOP cache, Composer's class map and the entry points into the opcache file cache.
-  It runs in the final image, with the PHP binary and the paths that serve the requests, and in a process started with
-  the file cache settings, which the command prints when they are missing:
+- `./yii aop:opcache` compiles the AOP cache, Composer's class map, the configuration and the entry points into the
+  opcache file cache. The configuration is the merge plan of yiisoft/config (`config/.merge-plan.php`) and every file
+  it lists, of every group and environment, the application's and the vendor packages'; the entry points are
+  `public/index.php` and `yii`. Pass `--entry` only for other files a request includes. It runs in the final image,
+  with the PHP binary and the paths that serve the requests, and in a process started with the file cache settings,
+  which the command prints when they are missing:
 
   ```bash
   mkdir -p /var/cache/opcache && php -d opcache.enable_cli=1 -d opcache.file_cache_only=1 \
       -d opcache.file_cache=/var/cache/opcache \
-      ./yii aop:opcache --file-cache=/var/cache/opcache --entry=public/index.php --entry=yii
+      ./yii aop:opcache --file-cache=/var/cache/opcache
   ```
 
 ## Performance

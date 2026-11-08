@@ -122,13 +122,49 @@ final class ConsoleApplicationTest extends TestCase
         $this->assertSame(0, $exitCode, $output);
 
         [$exitCode, $output] = $this->yii(
-            ['aop:opcache', '--file-cache=' . $fileCache, '--entry=' . TestApplication::rootPath() . '/tests/Support/App/yii'],
+            ['aop:opcache', '--file-cache=' . $fileCache],
             phpOptions: ['opcache.enable_cli=1', 'opcache.file_cache_only=1', 'opcache.file_cache=' . $fileCache],
         );
 
         $this->assertSame(0, $exitCode, $output);
         $this->assertMatchesRegularExpression('/Compiled \d+ files\./', $output);
-        $this->assertNotSame([], glob($fileCache . '/*', GLOB_ONLYDIR));
+        $compiledFiles = $this->compiledFiles($fileCache);
+        $rootPath      = (string) realpath(TestApplication::rootPath());
+        // Without --entry: the entry script, the merge plan and the config files of the application and the packages
+        foreach ([
+            'tests/Support/App/yii',
+            'tests/Support/App/config/.merge-plan.php',
+            'tests/Support/App/config/params.php',
+            'tests/Support/App/config/di.php',
+            'tests/Support/App/config/params-console.php',
+            'config/params.php',
+            'config/di.php',
+            'config/params-console.php',
+            'vendor/yiisoft/yii-console/config/params-console.php',
+        ] as $file) {
+            $this->assertContains($rootPath . '/' . $file, $compiledFiles, 'The config file ' . $file);
+        }
+    }
+
+    /**
+     * Returns the source files the file cache holds a compiled script of
+     *
+     * @return list<string>
+     */
+    private function compiledFiles(string $fileCache): array
+    {
+        $files    = [];
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($fileCache, \FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            $path = $file instanceof \SplFileInfo ? $file->getPathname() : '';
+            if (str_ends_with($path, '.bin')) {
+                // <file cache>/<system id>/<absolute path of the source>.bin
+                $relativePath = substr($path, strlen($fileCache) + 1, -strlen('.bin'));
+                $files[]      = substr($relativePath, (int) strpos($relativePath, '/'));
+            }
+        }
+
+        return $files;
     }
 
     public function testPrebuiltCacheMissFailsTheApplication(): void
