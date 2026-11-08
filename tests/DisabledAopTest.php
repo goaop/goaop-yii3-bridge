@@ -11,13 +11,21 @@ declare(strict_types=1);
 namespace Go\Yii3\GoAopBridge\Tests;
 
 use Go\Core\AspectContainer;
+use Go\Yii3\GoAopBridge\Command\DebugAdvisorCommand;
+use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
+use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
+use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
+use Go\Yii3\GoAopBridge\Command\WarmupCommand;
 use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use Go\Yii3\GoAopBridge\Tests\App\Service\GreetingService;
 use Go\Yii3\GoAopBridge\Tests\Support\TestApplication;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
 use Throwable;
 
 /**
@@ -50,6 +58,33 @@ final class DisabledAopTest extends TestCase
 
         $this->assertFalse(AspectYii3Kernel::isInitialized(), 'The bootstrap callback does not initialize it either');
         $this->assertSame('hello', $service->shout('hello'), 'No aspect is applied');
+    }
+
+    /**
+     * @return iterable<string, array{class-string<Command>}>
+     */
+    public static function aopCommands(): iterable
+    {
+        yield 'warmup' => [WarmupCommand::class];
+        yield 'opcache' => [OpcacheWarmupCommand::class];
+        yield 'debug aspect' => [DebugAspectCommand::class];
+        yield 'debug advisor' => [DebugAdvisorCommand::class];
+        yield 'debug weaving' => [DebugWeavingCommand::class];
+    }
+
+    /**
+     * @param class-string<Command> $commandClass
+     */
+    #[DataProvider('aopCommands')]
+    public function testCommandReportsThatAopIsDisabled(string $commandClass): void
+    {
+        $command = TestApplication::container()->get($commandClass);
+        $this->assertInstanceOf($commandClass, $command);
+        $tester = new CommandTester($command);
+
+        $this->assertSame(Command::SUCCESS, $tester->execute([]));
+        $this->assertStringContainsString(KernelOptions::DISABLED_MESSAGE, $tester->getDisplay());
+        $this->assertNotSame('', $command->getHelp(), 'The help of the framework command');
     }
 
     public function testAspectContainerReportsThatAopIsDisabled(): void
