@@ -140,10 +140,11 @@ final class CommandTest extends WeavingTestCase
         $command = $this->command(OpcacheWarmupCommand::class);
         $appDir  = (string) realpath(TestApplication::rootPath() . '/tests/Support/App');
 
-        $files = array_map(
-            static fn (string $file): string => (string) realpath($file),
-            (array) (new ReflectionMethod($command, 'applicationFiles'))->invoke($command),
-        );
+        $files = [];
+        foreach ((array) (new ReflectionMethod($command, 'applicationFiles'))->invoke($command) as $file) {
+            $this->assertIsString($file);
+            $files[] = (string) realpath($file);
+        }
 
         // The entry script of the application ("@root/yii"), the merge plan the runner read and the files it lists
         $this->assertContains($appDir . '/yii', $files);
