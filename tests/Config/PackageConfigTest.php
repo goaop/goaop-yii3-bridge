@@ -13,7 +13,7 @@ namespace Go\Yii3\GoAopBridge\Tests\Config;
 use Go\Console\Command\DebugAdvisorCommand;
 use Go\Console\Command\DebugAspectCommand;
 use Go\Console\Command\DebugWeavingCommand;
-use Go\Console\Command\OpcacheWarmupCommand;
+use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
 use Go\Core\AspectContainer;
 use Go\Core\AspectKernel;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;

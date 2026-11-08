@@ -35,10 +35,15 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `src/Config/KernelOptions.php`, `src/Config/AspectList.php` — typed, validated parameters; `AspectList` keeps the
   origin (parameter or tag) of every aspect for error messages.
 - `src/Config/TaggedAspects.php` — the opt-in tag lookup (`aspectTag`, e.g. `goaop.aspect`) in the container config.
-- `config/params-console.php` registers the framework commands as they are (`aop:opcache`, `aop:debug:*`): they find
-  the kernel the entry line initialized. `src/Command/` holds only what the framework can not do in a Yii3 console:
-  `WarmupCommand` (`aop:warmup`, starts its workers through the entry script), the hidden `WarmupWorkerCommand` and
-  `BuildProcess` (the cache-building command of the process, read from `$_SERVER['argv']` and the command map).
+- `src/Config/ConfigFiles.php` — the files of a yiisoft/config merge plan (every environment and group, `?optional`,
+  glob patterns, `$group` references skipped), and the merge plans the process has read (`get_included_files()`: the
+  runner requires its plan when it creates the config, yiisoft/config exposes no paths).
+- `config/params-console.php` registers the framework commands as they are (`aop:debug:*`): they find the kernel the
+  entry line initialized. `src/Command/` holds only what the framework can not do in a Yii3 console:
+  `WarmupCommand` (`aop:warmup`, starts its workers through the entry script), the hidden `WarmupWorkerCommand`,
+  `OpcacheWarmupCommand` (`aop:opcache`, adds the merge plan, its config files, `public/index.php` and the entry
+  script to the `--entry` files) and `BuildProcess` (the cache-building command of the process, read from
+  `$_SERVER['argv']` and the command map).
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
 
