@@ -5,6 +5,12 @@ declare(strict_types=1);
 return [
     'goaop/goaop-yii3-bridge' => [
         /*
+         * False runs the application without the aspect kernel: nothing is woven, the "aop:*" commands report that
+         * AOP is disabled. Null follows the GOAOP_ENABLED environment variable, then true
+         */
+        'enabled' => null,
+
+        /*
          * Debug mode: the engine re-weaves classes when their sources or the aspects change, and breakpoints in
          * the original sources work. Null follows the GOAOP_DEBUG, then the APP_DEBUG environment variable.
          * Keep it off in production: woven classes are then served straight from the cache (opcache-friendly).

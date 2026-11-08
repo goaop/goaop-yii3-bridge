@@ -32,7 +32,7 @@ final class KernelOptionsTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (KernelOptions::DEBUG_ENVIRONMENT_VARIABLES as $variable) {
+        foreach ([...KernelOptions::DEBUG_ENVIRONMENT_VARIABLES, KernelOptions::ENABLED_ENVIRONMENT_VARIABLE] as $variable) {
             putenv($variable);
             unset($_ENV[$variable]);
         }
@@ -54,6 +54,7 @@ final class KernelOptionsTest extends TestCase
         $this->assertSame(['/app/src'], $options->includePaths);
         $this->assertSame([], $options->excludePaths);
         $this->assertNull($options->parsedFilesLimit);
+        $this->assertTrue($options->enabled);
     }
 
     public function testToArrayMatchesKernelOptionsFormat(): void
@@ -183,6 +184,24 @@ final class KernelOptionsTest extends TestCase
         $this->assertFalse($options->debug);
     }
 
+    public function testNullEnabledFollowsTheEnvironmentVariable(): void
+    {
+        putenv('GOAOP_ENABLED=false');
+
+        $options = KernelOptions::fromParams(['appDir' => '@root', 'cacheDir' => '/tmp/aop'], $this->aliases);
+
+        $this->assertFalse($options->enabled);
+    }
+
+    public function testEnabledParameterTakesPrecedenceOverTheEnvironmentVariable(): void
+    {
+        $_ENV['GOAOP_ENABLED'] = '0';
+
+        $options = KernelOptions::fromParams(['appDir' => '@root', 'cacheDir' => '/tmp/aop', 'enabled' => true], $this->aliases);
+
+        $this->assertTrue($options->enabled);
+    }
+
     /**
      * @return iterable<string, array{array<string, mixed>, string}>
      */
@@ -194,6 +213,7 @@ final class KernelOptionsTest extends TestCase
         yield 'empty application directory' => [['appDir' => ''] + $valid, 'parameter "appDir" must be a non-empty path string, string given'];
         yield 'debug array' => [['debug' => []] + $valid, 'parameter "debug" must be a boolean'];
         yield 'debug word' => [['debug' => 'sometimes'] + $valid, 'parameter "debug" must be a boolean'];
+        yield 'enabled word' => [['enabled' => 'maybe'] + $valid, 'parameter "enabled" must be a boolean, a boolean-like string or null, string given'];
         yield 'cache file mode digits' => [['cacheFileMode' => '999'] + $valid, 'parameter "cacheFileMode" must be an integer'];
         yield 'features string' => [['features' => '4'] + $valid, 'parameter "features" must be an integer bitmask'];
         yield 'unknown feature' => [['features' => 1 | 64] + $valid, 'parameter "features" must be a bitmask of Go\Aop\Features constants, 65 contains unknown bits 1.'];

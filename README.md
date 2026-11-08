@@ -90,6 +90,11 @@ Why the entry script? Weaving only applies to classes loaded after the kernel st
 classes while it builds the container, before any `bootstrap` callback runs. In debug mode, for example, every
 class with an array definition is reflected for validation, and the HTTP runner creates the error handler early.
 
+With `enabled` set to `false` (or `GOAOP_ENABLED=0`), `AopBootstrap::init()` returns the kernel without initializing
+it (`AspectYii3Kernel::isInitialized()` is `false`): the entry line can stay in place, e.g. to compare a request with
+and without aspects, or to rule out the weaver while debugging. Resolving `Go\Core\AspectContainer` then fails with
+an exception saying that AOP is disabled.
+
 If you skip this step, the `bootstrap` config group of the bridge still starts the kernel. Weaving then starts late:
 autowired services are woven, but classes loaded while the container was built are not. In debug mode that
 includes every class with an array definition, so behavior would differ between development and production.
@@ -228,6 +233,7 @@ environment in `config/environments/<env>/params.php`:
 
 | Parameter       | Default            | Purpose |
 |-----------------|--------------------|---------|
+| `enabled`       | `null`             | `false` runs the application without the aspect kernel: neither the entry line nor the `bootstrap` callback starts it, nothing is woven, and the `aop:*` commands report that AOP is disabled. `null` follows the `GOAOP_ENABLED` environment variable, then `true`. |
 | `debug`         | `null`             | Re-weave when sources or aspects change, breakpoints work in the original sources. `null` follows the `GOAOP_DEBUG`, then the `APP_DEBUG` environment variable. Keep it off in production. |
 | `appDir`        | `'@root'`          | Application root, only files below it are woven. |
 | `cacheDir`      | `'@runtime/aop'`   | Woven sources, proxies and advisor caches. |
@@ -259,7 +265,8 @@ With [yiisoft/yii-console](https://github.com/yiisoft/yii-console) installed, th
 
 They are the framework's own commands (`cache:warmup:aop`, `cache:warmup:opcache`, `debug:*`), registered under names
 of the `aop` namespace; `aop:warmup` and `aop:opcache` are extended for Yii3. They run on the kernel the entry line
-initialized: leave out their optional `loader` argument.
+initialized: leave out their optional `loader` argument. With AOP disabled (`enabled` false) every one of them says so
+and exits successfully, without weaving anything.
 
 The workers of `aop:warmup --workers=N` run the entry script again (`./yii`, with the hidden `aop:warmup-worker`
 command), so they boot the application with the same environment, configuration and aspects. That needs the entry

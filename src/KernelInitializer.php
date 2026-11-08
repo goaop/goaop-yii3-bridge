@@ -39,12 +39,17 @@ final class KernelInitializer
         $kernel = AspectYii3Kernel::instance();
         // Options and aspects are only resolved when the entry script did not initialize the kernel
         if (!AspectYii3Kernel::isInitialized()) {
+            $options = self::service($container, KernelOptions::class);
+            if (!$options->enabled) {
+                // The application runs without AOP: no kernel, no container to attach, nothing to check
+                return $kernel;
+            }
             // Bootstrap callbacks run after this one may load classes the prebuilt cache misses (#808)
             if ((PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') && is_array($_SERVER['argv'] ?? null)) {
                 BuildProcess::mark($this->consoleParams, array_values(array_filter($_SERVER['argv'], is_string(...))));
             }
             $kernel->boot(
-                self::service($container, KernelOptions::class),
+                $options,
                 self::service($container, AspectList::class),
             );
         }
