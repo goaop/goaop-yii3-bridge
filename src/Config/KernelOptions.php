@@ -46,6 +46,17 @@ final readonly class KernelOptions
         . '(or GOAOP_ENABLED): the aspect kernel is not initialized and nothing is woven.';
 
     /**
+     * Environment variable consulted when the "cacheDir" parameter is null, e.g. set by a container image to a
+     * directory that no volume covers
+     */
+    public const string CACHE_DIR_ENVIRONMENT_VARIABLE = 'GOAOP_CACHE_DIR';
+
+    /**
+     * Cache directory when neither the "cacheDir" parameter nor the environment variable is set
+     */
+    public const string DEFAULT_CACHE_DIR = '@runtime/aop';
+
+    /**
      * @param list<string>          $includePaths
      * @param list<string>          $excludePaths
      * @param positive-int|null     $parsedFilesLimit Null applies the default of the kernel
@@ -73,7 +84,7 @@ final readonly class KernelOptions
         return new self(
             debug: self::debug($params['debug'] ?? null),
             appDir: $aliases->get(self::nonEmptyString($params, 'appDir')),
-            cacheDir: $aliases->get(self::nonEmptyString($params, 'cacheDir')),
+            cacheDir: $aliases->get(self::cacheDir($params['cacheDir'] ?? null)),
             cacheFileMode: self::cacheFileMode($params['cacheFileMode'] ?? null),
             features: self::features($params['features'] ?? 0),
             includePaths: self::paths($params, 'includePaths', $aliases),
@@ -159,6 +170,23 @@ final readonly class KernelOptions
         }
 
         return $enabled;
+    }
+
+    /**
+     * Returns the cache directory, an alias allowed: the parameter, else GOAOP_CACHE_DIR, else "@runtime/aop"
+     */
+    private static function cacheDir(mixed $value): string
+    {
+        if ($value === null) {
+            $value = self::environmentVariable(self::CACHE_DIR_ENVIRONMENT_VARIABLE);
+            // An empty variable counts as not set, as in "GOAOP_CACHE_DIR= ./yii ..."
+            $value = $value === null || $value === '' ? self::DEFAULT_CACHE_DIR : $value;
+        }
+        if (!is_string($value) || $value === '') {
+            throw self::invalid('cacheDir', 'a non-empty path string or null', $value);
+        }
+
+        return $value;
     }
 
     /**

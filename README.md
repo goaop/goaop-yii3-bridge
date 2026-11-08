@@ -236,7 +236,7 @@ environment in `config/environments/<env>/params.php`:
 | `enabled`       | `null`             | `false` runs the application without the aspect kernel: neither the entry line nor the `bootstrap` callback starts it, nothing is woven, and the `aop:*` commands report that AOP is disabled. `null` follows the `GOAOP_ENABLED` environment variable, then `true`. |
 | `debug`         | `null`             | Re-weave when sources or aspects change, breakpoints work in the original sources. `null` follows the `GOAOP_DEBUG`, then the `APP_DEBUG` environment variable. Keep it off in production. |
 | `appDir`        | `'@root'`          | Application root, only files below it are woven. |
-| `cacheDir`      | `'@runtime/aop'`   | Woven sources, proxies and advisor caches. |
+| `cacheDir`      | `null`             | Woven sources, proxies and advisor caches. `null` follows the `GOAOP_CACHE_DIR` environment variable (an alias allowed), then `'@runtime/aop'`. Keep it out of shared and persistent volumes, see [Deployment](#deployment). |
 | `cacheFileMode` | `null`             | Permissions of cache files: an integer (`0770`) or octal digits (`'770'`, e.g. from an environment variable). `null` means `0770` minus the umask. |
 | `features`      | `0`                | Bitmask of `Go\Aop\Features` flags: `PREBUILT_CACHE` (see [Deployment](#deployment)), `PARTIAL_REFLECTION` (weave classes whose parent class, interface or trait Composer can't locate; members inherited from a missing ancestor aren't intercepted), `INTERCEPT_INCLUDES` (weave files loaded with `include`/`require`). |
 | `includePaths`  | `['@src']`         | Only these directories are woven. Keep it narrow. |
@@ -282,6 +282,29 @@ Weaving happens on the first load of each class. In production, turn `debug` off
 
 `--cache-dir=DIR` builds the cache in another directory while the kernel keeps using its own, e.g. to build a fresh
 cache and swap it in atomically: the cache files are location independent, so the directory can be moved into place.
+
+The cache belongs to the release it was built from: keep it out of shared and persistent volumes. The production setup
+of the Yii3 application templates (`docker/prod/compose.yml` of yiisoft/app and yiisoft/app-api) mounts a named
+volume on the runtime directory:
+
+```yaml
+services:
+  app:
+    volumes:
+      - runtime:/app/runtime
+```
+
+With the default `@runtime/aop`, a cache built into the image with `./yii aop:warmup` then lands in that volume.
+Docker copies it there on the first deployment only: every later deployment keeps the volume, so the new containers
+serve the woven classes and the preload script of the previous release. Without `PREBUILT_CACHE` production mode
+does not notice the changed sources; with it, a class that is new in the release fails with a `WeavingException`.
+A rolling update (`start-first`) even runs both releases against the same cache. Build the cache into a directory of
+the image that no volume covers, with the environment variable or the parameter:
+
+```dockerfile
+ENV GOAOP_CACHE_DIR=/app/aop
+RUN ./yii aop:warmup --workers=4 --preload
+```
 
 On read-only file systems add `Features::PREBUILT_CACHE` to `features`. The engine then trusts the cache completely
 and never writes to it, so rebuild it on every deploy. A request never weaves: a class below the include paths that the
