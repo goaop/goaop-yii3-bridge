@@ -32,7 +32,7 @@ final class KernelOptionsTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (KernelOptions::DEBUG_ENVIRONMENT_VARIABLES as $variable) {
+        foreach ([...KernelOptions::DEBUG_ENVIRONMENT_VARIABLES, KernelOptions::CACHE_DIR_ENVIRONMENT_VARIABLE] as $variable) {
             putenv($variable);
             unset($_ENV[$variable]);
         }
@@ -183,6 +183,42 @@ final class KernelOptionsTest extends TestCase
         $this->assertFalse($options->debug);
     }
 
+    public function testNullCacheDirFollowsTheEnvironmentVariable(): void
+    {
+        putenv('GOAOP_CACHE_DIR=@root/aop');
+
+        $options = KernelOptions::fromParams(['appDir' => '@root'], $this->aliases);
+
+        $this->assertSame('/app/aop', $options->cacheDir, 'The variable may use an alias');
+    }
+
+    public function testCacheDirEnvironmentVariableIsReadFromEnv(): void
+    {
+        $_ENV['GOAOP_CACHE_DIR'] = '/var/cache/aop';
+
+        $options = KernelOptions::fromParams(['appDir' => '@root', 'cacheDir' => null], $this->aliases);
+
+        $this->assertSame('/var/cache/aop', $options->cacheDir);
+    }
+
+    public function testCacheDirParameterTakesPrecedenceOverTheEnvironmentVariable(): void
+    {
+        putenv('GOAOP_CACHE_DIR=/var/cache/aop');
+
+        $options = KernelOptions::fromParams(['appDir' => '@root', 'cacheDir' => '/tmp/aop'], $this->aliases);
+
+        $this->assertSame('/tmp/aop', $options->cacheDir);
+    }
+
+    public function testEmptyCacheDirEnvironmentVariableAppliesTheDefault(): void
+    {
+        putenv('GOAOP_CACHE_DIR=');
+
+        $options = KernelOptions::fromParams(['appDir' => '@root'], $this->aliases);
+
+        $this->assertSame('/app/runtime/aop', $options->cacheDir);
+    }
+
     /**
      * @return iterable<string, array{array<string, mixed>, string}>
      */
@@ -190,7 +226,8 @@ final class KernelOptionsTest extends TestCase
     {
         $valid = ['appDir' => '@root', 'cacheDir' => '/tmp/aop'];
 
-        yield 'missing cache directory' => [['appDir' => '@root'], 'parameter "cacheDir" must be a non-empty path string, null given'];
+        yield 'empty cache directory' => [['cacheDir' => ''] + $valid, 'parameter "cacheDir" must be a non-empty path string or null, string given'];
+        yield 'cache directory list' => [['cacheDir' => ['/tmp/aop']] + $valid, 'parameter "cacheDir" must be a non-empty path string or null, array given'];
         yield 'empty application directory' => [['appDir' => ''] + $valid, 'parameter "appDir" must be a non-empty path string, string given'];
         yield 'debug array' => [['debug' => []] + $valid, 'parameter "debug" must be a boolean'];
         yield 'debug word' => [['debug' => 'sometimes'] + $valid, 'parameter "debug" must be a boolean'];

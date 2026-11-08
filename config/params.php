@@ -14,8 +14,12 @@ return [
         // Root directory of the application, only files below it are woven
         'appDir' => '@root',
 
-        // Woven sources, proxies and advisor caches; fill it at deploy time with "./yii aop:warmup"
-        'cacheDir' => '@runtime/aop',
+        /*
+         * Woven sources, proxies and advisor caches; fill it at deploy time with "./yii aop:warmup". Null follows the
+         * GOAOP_CACHE_DIR environment variable, then "@runtime/aop". Keep it out of shared or persistent volumes: a
+         * container image that mounts a volume on the runtime directory would serve the cache of an older release
+         */
+        'cacheDir' => null,
 
         // Permissions of the cache files: an integer (0770) or octal digits ("770"); null applies 0770 minus umask
         'cacheFileMode' => null,
