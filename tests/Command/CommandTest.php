@@ -10,9 +10,9 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Tests\Command;
 
-use Go\Console\Command\DebugAdvisorCommand;
-use Go\Console\Command\DebugAspectCommand;
-use Go\Console\Command\DebugWeavingCommand;
+use Go\Yii3\GoAopBridge\Command\DebugAdvisorCommand;
+use Go\Yii3\GoAopBridge\Command\DebugAspectCommand;
+use Go\Yii3\GoAopBridge\Command\DebugWeavingCommand;
 use Go\Yii3\GoAopBridge\Command\OpcacheWarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupCommand;
 use Go\Yii3\GoAopBridge\Command\WarmupWorkerCommand;

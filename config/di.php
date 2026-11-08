@@ -9,6 +9,7 @@ use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Go\Yii3\GoAopBridge\Config\TaggedAspects;
 use Go\Yii3\GoAopBridge\Kernel\AspectYii3Kernel;
 use Go\Yii3\GoAopBridge\KernelInitializer;
+use Psr\Container\ContainerInterface;
 use Yiisoft\Aliases\Aliases;
 use Yiisoft\Config\ConfigInterface;
 
@@ -29,7 +30,17 @@ return [
     ),
     AspectYii3Kernel::class => static fn(): AspectYii3Kernel => AspectYii3Kernel::instance(),
     AspectKernel::class => static fn(AspectYii3Kernel $kernel): AspectKernel => $kernel,
-    AspectContainer::class => static fn(AspectKernel $kernel): AspectContainer => $kernel->getContainer(),
+    AspectContainer::class => static function (AspectKernel $kernel, ContainerInterface $container): AspectContainer {
+        // Without AOP ("enabled" false) there is no aspect container, say why instead of failing on the kernel
+        if (!AspectKernel::isInitialized()) {
+            $options = $container->get(KernelOptions::class);
+            if ($options instanceof KernelOptions && !$options->enabled) {
+                throw new LogicException(KernelOptions::DISABLED_MESSAGE);
+            }
+        }
+
+        return $kernel->getContainer();
+    },
     // The console commands of the runner tell whether the process builds the AOP cache (#808)
     KernelInitializer::class => static fn(): KernelInitializer => new KernelInitializer(
         $params['yiisoft/yii-console'] ?? null,

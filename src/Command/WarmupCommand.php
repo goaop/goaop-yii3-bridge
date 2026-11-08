@@ -59,6 +59,8 @@ EOT,
 )]
 final class WarmupCommand extends FrameworkCacheWarmupCommand
 {
+    use ReportsDisabledAop;
+
     protected function createCacheWarmer(
         OutputInterface $output,
         bool $failFast = false,

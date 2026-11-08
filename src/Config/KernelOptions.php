@@ -35,6 +35,17 @@ final readonly class KernelOptions
     public const array DEBUG_ENVIRONMENT_VARIABLES = ['GOAOP_DEBUG', 'APP_DEBUG'];
 
     /**
+     * Environment variable consulted when the "enabled" parameter is null
+     */
+    public const string ENABLED_ENVIRONMENT_VARIABLE = 'GOAOP_ENABLED';
+
+    /**
+     * What the commands and the aspect container report when AOP is switched off
+     */
+    public const string DISABLED_MESSAGE = 'Go! AOP is disabled by the "enabled" parameter of goaop/goaop-yii3-bridge '
+        . '(or GOAOP_ENABLED): the aspect kernel is not initialized and nothing is woven.';
+
+    /**
      * Environment variable consulted when the "cacheDir" parameter is null, e.g. set by a container image to a
      * directory that no volume covers
      */
@@ -49,6 +60,7 @@ final readonly class KernelOptions
      * @param list<string>          $includePaths
      * @param list<string>          $excludePaths
      * @param positive-int|null     $parsedFilesLimit Null applies the default of the kernel
+     * @param bool                  $enabled          False runs the application without the aspect kernel
      */
     public function __construct(
         public bool $debug,
@@ -59,6 +71,7 @@ final readonly class KernelOptions
         public array $includePaths,
         public array $excludePaths,
         public ?int $parsedFilesLimit = null,
+        public bool $enabled = true,
     ) {}
 
     /**
@@ -77,6 +90,7 @@ final readonly class KernelOptions
             includePaths: self::paths($params, 'includePaths', $aliases),
             excludePaths: self::paths($params, 'excludePaths', $aliases),
             parsedFilesLimit: self::parsedFilesLimit($params['parsedFilesLimit'] ?? null),
+            enabled: self::enabled($params['enabled'] ?? null),
         );
     }
 
@@ -137,6 +151,25 @@ final readonly class KernelOptions
         }
 
         return $debug;
+    }
+
+    /**
+     * Returns whether the aspect kernel starts: the parameter, else GOAOP_ENABLED, else true
+     */
+    private static function enabled(mixed $value): bool
+    {
+        $value ??= self::environmentVariable(self::ENABLED_ENVIRONMENT_VARIABLE) ?? true;
+        if (is_bool($value)) {
+            return $value;
+        }
+        $enabled = is_string($value) || is_int($value)
+            ? filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE)
+            : null;
+        if ($enabled === null) {
+            throw self::invalid('enabled', 'a boolean, a boolean-like string or null', $value);
+        }
+
+        return $enabled;
     }
 
     /**

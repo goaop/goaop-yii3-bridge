@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace Go\Yii3\GoAopBridge\Command;
 
-use Go\Console\Command\DebugWeavingCommand;
+use Go\Console\Command\DebugWeavingCommand as FrameworkDebugWeavingCommand;
 use Go\Instrument\ClassLoading\CachePathManager;
 
 /**
@@ -36,7 +36,13 @@ final class BuildProcess
     /**
      * Commands that build the AOP cache
      */
-    public const array COMMAND_CLASSES = [WarmupCommand::class, WarmupWorkerCommand::class, DebugWeavingCommand::class];
+    public const array COMMAND_CLASSES = [
+        WarmupCommand::class,
+        WarmupWorkerCommand::class,
+        DebugWeavingCommand::class,
+        // An application may register the framework command itself
+        FrameworkDebugWeavingCommand::class,
+    ];
 
     /**
      * Options of the console application that take their value from the next argument (yiisoft/yii-console adds

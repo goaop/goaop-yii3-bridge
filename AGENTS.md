@@ -38,12 +38,16 @@ resolved from the Yii container, and adds the `aop:*` console commands.
 - `src/Config/ConfigFiles.php` — the files of a yiisoft/config merge plan (every environment and group, `?optional`,
   glob patterns, `$group` references skipped), and the merge plans the process has read (`get_included_files()`: the
   runner requires its plan when it creates the config, yiisoft/config exposes no paths).
-- `config/params-console.php` registers the framework commands as they are (`aop:debug:*`): they find the kernel the
-  entry line initialized. `src/Command/` holds only what the framework can not do in a Yii3 console:
-  `WarmupCommand` (`aop:warmup`, starts its workers through the entry script), the hidden `WarmupWorkerCommand`,
-  `OpcacheWarmupCommand` (`aop:opcache`, adds the merge plan, its config files, `public/index.php` and the entry
-  script to the `--entry` files) and `BuildProcess` (the cache-building command of the process, read from
-  `$_SERVER['argv']` and the command map).
+- `config/params-console.php` registers the commands; they find the kernel the entry line initialized. `src/Command/`
+  holds what the framework can not do in a Yii3 console: `WarmupCommand` (`aop:warmup`, starts its workers through
+  the entry script), the hidden `WarmupWorkerCommand`, `OpcacheWarmupCommand` (`aop:opcache`, adds the merge plan, its
+  config files, `public/index.php` and the entry script to the `--entry` files), the thin `Debug*Command` subclasses
+  of the framework's `debug:*` commands, `ReportsDisabledAop` (every `aop:*` command reports `enabled` false instead
+  of failing on the uninitialized kernel; a subclass copies the help of the framework command, `#[AsCommand]` is not
+  inherited) and `BuildProcess` (the cache-building command of the process, read from `$_SERVER['argv']` and the
+  command map).
+- `enabled` false (`KernelOptions::$enabled`, `GOAOP_ENABLED`): `AopBootstrap::init()` and the bootstrap callback
+  return the kernel uninitialized, the `AspectContainer` definition throws `KernelOptions::DISABLED_MESSAGE`.
 - `benchmarks/` — boot-time benchmarks (namespace `Go\Yii3\GoAopBridge\Benchmarks\`): a generated application, a
   timed front controller (`public/index.php`), CLI and `php -S` runs, budgets; results in `benchmarks/RESULTS.md`.
 
