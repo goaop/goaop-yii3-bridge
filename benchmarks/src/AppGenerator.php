@@ -23,7 +23,7 @@ use RuntimeException;
  */
 final readonly class AppGenerator
 {
-    public const string NAMESPACE = 'Go\\Yii3\\GoAopBridge\\Benchmarks\\App';
+    public const string APP_NAMESPACE = 'Go\\Yii3\\GoAopBridge\\Benchmarks\\App';
 
     public function __construct(private string $directory, private int $services, private int $aspects)
     {
@@ -51,7 +51,7 @@ final readonly class AppGenerator
         }
         $this->write('manifest.php', $this->export([
             'services' => array_map($this->serviceClass(...), range(0, $this->services - 1)),
-            'counter'  => self::NAMESPACE . '\\Service\\Counter',
+            'counter'  => self::APP_NAMESPACE . '\\Service\\Counter',
             'aspects'  => $this->aspects,
         ]));
         foreach (Scenario::cases() as $scenario) {
@@ -64,12 +64,12 @@ final readonly class AppGenerator
 
     private function serviceClass(int $index): string
     {
-        return self::NAMESPACE . '\\Service\\Service' . $index;
+        return self::APP_NAMESPACE . '\\Service\\Service' . $index;
     }
 
     private function aspectClass(int $index): string
     {
-        return self::NAMESPACE . '\\Aspect\\Aspect' . $index;
+        return self::APP_NAMESPACE . '\\Aspect\\Aspect' . $index;
     }
 
     private function counter(): string
