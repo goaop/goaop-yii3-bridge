@@ -16,6 +16,7 @@ use Go\Aop\Exception\InvalidConfigurationException;
 use Go\Console\Command\OpcacheWarmupCommand as FrameworkOpcacheWarmupCommand;
 use Go\Instrument\ClassLoading\AopComposerLoader;
 use Go\Yii3\GoAopBridge\Config\ConfigFiles;
+use Go\Yii3\GoAopBridge\Config\KernelOptions;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -57,13 +58,20 @@ EOT,
 )]
 final class OpcacheWarmupCommand extends FrameworkOpcacheWarmupCommand
 {
-    public function __construct(private readonly Aliases $aliases)
+    use ReportsDisabledAop {
+        ReportsDisabledAop::__construct as private initializeReportsDisabledAop;
+    }
+
+    public function __construct(private readonly Aliases $aliases, KernelOptions $kernelOptions)
     {
-        parent::__construct();
+        $this->initializeReportsDisabledAop($kernelOptions);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if ($this->reportsDisabledAop($input, $output)) {
+            return self::SUCCESS;
+        }
         $entries = $input->getOption('entry');
         $entries = [...(is_array($entries) ? $entries : []), ...$this->applicationFiles()];
         // A file of the application also given with --entry is compiled once; an entry that does not resolve is left

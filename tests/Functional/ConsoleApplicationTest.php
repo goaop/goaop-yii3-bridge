@@ -37,6 +37,48 @@ final class ConsoleApplicationTest extends TestCase
         $this->assertSame('HELLO!', trim($output));
     }
 
+    public function testApplicationRunsUnwovenWithAopDisabled(): void
+    {
+        [$exitCode, $output] = $this->yii(['app:greet', 'hello'], environment: ['GOAOP_ENABLED' => '0']);
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertSame('hello', trim($output), 'No aspect is applied');
+    }
+
+    /**
+     * @return iterable<string, array{list<string>}>
+     */
+    public static function aopCommands(): iterable
+    {
+        yield 'warmup' => [['aop:warmup']];
+        yield 'opcache' => [['aop:opcache']];
+        yield 'debug:aspect' => [['aop:debug:aspect']];
+        yield 'debug:advisor' => [['aop:debug:advisor']];
+        yield 'debug:weaving' => [['aop:debug:weaving']];
+    }
+
+    /**
+     * @param list<string> $arguments
+     */
+    #[DataProvider('aopCommands')]
+    public function testAopCommandsReportThatAopIsDisabled(array $arguments): void
+    {
+        [$exitCode, $output] = $this->yii($arguments, environment: ['GOAOP_ENABLED' => '0']);
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertStringContainsString('Go! AOP is disabled', $output);
+        $this->assertDirectoryDoesNotExist($this->runtime . '/aop', 'Nothing is woven');
+    }
+
+    public function testDebugCommandsKeepTheHelpOfTheFrameworkCommands(): void
+    {
+        [$exitCode, $output] = $this->yii(['help', 'aop:debug:advisor']);
+
+        $this->assertSame(0, $exitCode, $output);
+        $this->assertStringContainsString('Provides an interface for checking and debugging advisors', $output);
+        $this->assertStringContainsString('Help:', $output);
+    }
+
     public function testBootstrapFallbackWeavesWithoutTheEntryLine(): void
     {
         [$exitCode, $output] = $this->yii(['app:greet', 'fallback'], entryLine: false);
@@ -211,10 +253,17 @@ final class ConsoleApplicationTest extends TestCase
     /**
      * @param list<string> $arguments
      * @param list<string> $phpOptions ini settings of the process
+     * @param array<string, string> $environment Additional environment variables of the process
      *
      * @return array{int, string}
      */
-    private function yii(array $arguments, bool $entryLine = true, int $features = 0, array $phpOptions = []): array
+    private function yii(
+        array $arguments,
+        bool $entryLine = true,
+        int $features = 0,
+        array $phpOptions = [],
+        array $environment = [],
+    ): array
     {
         $command = [PHP_BINARY];
         foreach ($phpOptions as $option) {
@@ -227,7 +276,7 @@ final class ConsoleApplicationTest extends TestCase
             'GOAOP_TEST_ENTRY_LINE' => $entryLine ? '1' : '0',
             'GOAOP_TEST_FEATURES'   => (string) $features,
             'PATH'                  => (string) getenv('PATH'),
-        ];
+        ] + $environment;
         // Lets the ini of the test run reach the process, e.g. the JIT disabled for PHP 8.5.11 (AGENTS.md)
         $iniScanDir = getenv('PHP_INI_SCAN_DIR');
         if (is_string($iniScanDir)) {

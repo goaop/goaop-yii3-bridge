@@ -59,6 +59,9 @@ final class AopBootstrap
     /**
      * Initializes the kernel once per process and returns it
      *
+     * With the "enabled" parameter false (or GOAOP_ENABLED) the kernel is returned not initialized
+     * ({@see AspectYii3Kernel::isInitialized()}): the application runs without AOP, nothing is woven.
+     *
      * @param ConfigInterface $config   Config of the runner, {@see \Yiisoft\Yii\Runner\ApplicationRunner::getConfig()}
      * @param string          $rootPath Root path of the application, the default of the "@root" alias
      */
@@ -84,12 +87,16 @@ final class AopBootstrap
                 KernelOptions::PARAMS_KEY,
             ));
         }
+        $options = KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? []));
+        if (!$options->enabled) {
+            return $kernel;
+        }
         // The console builds the AOP cache: classes the runner loads before the command runs are no misses (#808)
         if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {
             BuildProcess::mark($params['yiisoft/yii-console'] ?? null, self::arguments());
         }
         $kernel->boot(
-            KernelOptions::fromParams($bridgeParams, self::aliases($rootPath, $params['yiisoft/aliases'] ?? [])),
+            $options,
             AspectList::fromParams($bridgeParams)->merge(TaggedAspects::fromParams($bridgeParams)->collect($config)),
             // The script calling the entry line, which the workers of "aop:warmup" run again
             debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 1)[0]['file'] ?? null,
