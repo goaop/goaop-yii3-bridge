@@ -118,8 +118,8 @@ composer benchmark          # boot-time benchmarks, see benchmarks/README.md (--
 - The fixture merge plan (`tests/Support/App/config/.merge-plan.php`) is hand-written in the format of the yiisoft/config
   plugin; the bridge itself is listed under the vendor override package `//`. Mark vendor files that differ between
   dependency versions optional (`?config/...`) so the `--prefer-lowest` job keeps working.
-- `vendor/` is tied to the PHP version that installed it: test PHP 8.4 and 8.6 with their own install
-  (`--ignore-platform-req=php+` for 8.6).
+- `vendor/` is tied to the PHP version that installed it: test PHP 8.4, 8.5 and 8.6 with their own install
+  (`--ignore-platform-req=php+` for 8.6 while yiisoft packages declare `"php": "8.1 - 8.5"`, as CI does).
 - Do not add a `containerClass` option with `Go\Core\GoAspectContainer` (removed upstream) and do not call
   `registerAspect()` (removed in framework 4.x: aspects are `add()`/`addLazyService()` services).
 - A new framework option, feature flag or command is exposed as a parameter (typed and validated in `KernelOptions`) or
